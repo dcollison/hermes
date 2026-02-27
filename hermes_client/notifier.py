@@ -23,9 +23,9 @@ _STATUS_ICONS = {
 # Maps event_type to a small fallback icon (used by winotify when no avatar)
 _EVENT_ICONS = {
     "pr": "pr.png",
-    "workitem": "workitem.png",
+    "workitem": "wi.png",
     "pipeline": "pipeline.png",
-    "manual": "hermes.png",
+    "manual": "hermesbg.png",
 }
 
 
