@@ -1,22 +1,16 @@
-"""Tests for server routers via the FastAPI test client.
-
-Covers:
-    - POST /clients/register (new, re-register idempotent)
-    - GET  /clients/
-    - DELETE /clients/{id}
-    - PUT /clients/{id}/subscriptions
-    - POST /webhooks/ado (accepted, bad secret, missing event type)
-    - POST /notifications/send
-    - GET  /notifications/logs
-"""
-
 # Standard
+import logging
+import logging.handlers
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Remote
 import pytest
 import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+
+import hermes_server.database as db
+from hermes_server.main import app
 
 # ---------------------------------------------------------------------------
 # Shared test client fixture
@@ -28,12 +22,6 @@ async def client(tmp_path):
     """Async httpx client wrapping the FastAPI app, with the database
     pointed at a fresh temp directory for each test.
     """
-    # Standard
-    import logging
-    import logging.handlers
-
-    # Remote
-    import hermes_server.database as db
 
     clients_file = str(tmp_path / "clients.json")
     log_file = str(tmp_path / "notifications.log")
@@ -54,12 +42,6 @@ async def client(tmp_path):
         patch.object(db, "LOG_FILE", log_file),
         patch.object(db, "_notif_logger", nl),
     ):
-        # Remote
-        from httpx import ASGITransport, AsyncClient
-
-        # Remote
-        from hermes_server.main import app
-
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",

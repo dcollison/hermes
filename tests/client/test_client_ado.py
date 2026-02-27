@@ -1,11 +1,3 @@
-"""Tests for hermes_client/ado.py
-
-Covers:
-    - _auth_headers: correct Basic auth encoding
-    - resolve_identity: success path, auth failure, missing user ID
-    - resolve_callback_url: returns a correctly formatted URL, falls back gracefully
-"""
-
 # Standard
 import base64
 from unittest.mock import MagicMock, patch
@@ -13,25 +5,23 @@ from unittest.mock import MagicMock, patch
 # Remote
 import pytest
 
+from hermes_client.ado import _auth_headers, resolve_callback_url, resolve_identity
+
 
 class TestAuthHeaders:
     def test_basic_auth_encoding(self):
-        # Remote
-        from hermes_client.ado import _auth_headers
 
         headers = _auth_headers("my-secret-pat")
         expected_token = base64.b64encode(b":my-secret-pat").decode()
         assert headers["Authorization"] == f"Basic {expected_token}"
 
     def test_accept_header_is_json(self):
-        # Remote
         from hermes_client.ado import _auth_headers
 
         headers = _auth_headers("pat")
         assert headers["Accept"] == "application/json"
 
     def test_empty_pat(self):
-        # Remote
         from hermes_client.ado import _auth_headers
 
         headers = _auth_headers("")
@@ -58,8 +48,6 @@ class TestResolveIdentity:
         return mock
 
     def test_success_returns_user_id_and_display_name(self):
-        # Remote
-        from hermes_client.ado import resolve_identity
 
         resp = self._mock_response(
             json_body={
@@ -77,8 +65,6 @@ class TestResolveIdentity:
         assert result["display_name"] == "Alice Smith"
 
     def test_falls_back_to_customDisplayName(self):
-        # Remote
-        from hermes_client.ado import resolve_identity
 
         resp = self._mock_response(
             json_body={
@@ -93,7 +79,6 @@ class TestResolveIdentity:
         assert result["display_name"] == "Alice (Custom)"
 
     def test_url_has_trailing_slash_stripped(self):
-        # Remote
         from hermes_client.ado import resolve_identity
 
         resp = self._mock_response(
@@ -107,8 +92,6 @@ class TestResolveIdentity:
             assert not url_called.startswith("http://ado/DefaultCollection//")
 
     def test_missing_user_id_raises(self):
-        # Remote
-        from hermes_client.ado import resolve_identity
 
         resp = self._mock_response(json_body={"authenticatedUser": {}})
         with patch("httpx.get", return_value=resp):
@@ -119,7 +102,6 @@ class TestResolveIdentity:
         # Remote
         import httpx
 
-        # Remote
         from hermes_client.ado import resolve_identity
 
         resp = self._mock_response(status_code=401)
@@ -128,8 +110,6 @@ class TestResolveIdentity:
                 resolve_identity("http://ado/DefaultCollection", "bad-pat")
 
     def test_uses_correct_api_endpoint(self):
-        # Remote
-        from hermes_client.ado import resolve_identity
 
         resp = self._mock_response(
             json_body={
@@ -144,8 +124,6 @@ class TestResolveIdentity:
 
 class TestResolveCallbackUrl:
     def test_returns_http_url_with_port(self):
-        # Remote
-        from hermes_client.ado import resolve_callback_url
 
         mock_sock = MagicMock()
         mock_sock.__enter__ = MagicMock(return_value=mock_sock)
@@ -158,8 +136,6 @@ class TestResolveCallbackUrl:
         assert result == "http://192.168.1.42:9000/notify"
 
     def test_falls_back_to_hostname_on_socket_error(self):
-        # Remote
-        from hermes_client.ado import resolve_callback_url
 
         with (
             patch("socket.socket", side_effect=OSError("network unreachable")),
@@ -170,8 +146,6 @@ class TestResolveCallbackUrl:
         assert result == "http://10.0.0.1:9000/notify"
 
     def test_falls_back_to_loopback_when_all_else_fails(self):
-        # Remote
-        from hermes_client.ado import resolve_callback_url
 
         with (
             patch("socket.socket", side_effect=OSError),
@@ -182,8 +156,6 @@ class TestResolveCallbackUrl:
         assert result == "http://127.0.0.1:9000/notify"
 
     def test_port_embedded_in_url(self):
-        # Remote
-        from hermes_client.ado import resolve_callback_url
 
         mock_sock = MagicMock()
         mock_sock.__enter__ = MagicMock(return_value=mock_sock)

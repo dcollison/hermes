@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "hermes"
-version = "1.0.0"
+version = "2.0.0"
 description = "Hermes — Azure DevOps webhook notification system"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -52,5 +52,4 @@ profile = "black"
 src_paths = ["hermes_client", "hermes_server", "tests"]
 import_heading_stdlib = "Standard"
 import_heading_thirdparty = "Remote"
-import_heading_firstparty = "Remote"
 import_heading_localfolder = "Local"

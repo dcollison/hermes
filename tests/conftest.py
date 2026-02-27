@@ -1,11 +1,15 @@
-"""Shared pytest fixtures for Hermes tests."""
-
 # Standard
+import logging
+import logging.handlers
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 # Remote
 import pytest
+from httpx import ASGITransport, AsyncClient
+
+import hermes_server.database as db
+from hermes_server.main import app
 
 # ---------------------------------------------------------------------------
 # Temporary data directory — isolates every test from real files
@@ -14,11 +18,10 @@ import pytest
 
 @pytest.fixture
 def tmp_data_dir(tmp_path):
-    """Point the database module at a fresh temp directory for each test.
+    """
+    Point the database module at a fresh temp directory for each test.
     Resets module-level globals that cache file paths.
     """
-    # Remote
-    import server.database as db
 
     clients_file = str(tmp_path / "clients.json")
     log_file = str(tmp_path / "notifications.log")
@@ -33,9 +36,6 @@ def tmp_data_dir(tmp_path):
         Path(log_file).touch()
 
         # Give the module a working notif logger pointing at the temp file
-        # Standard
-        import logging
-        import logging.handlers
 
         nl = logging.getLogger("hermes.notifications.test")
         nl.propagate = False
@@ -128,8 +128,4 @@ def api_client(tmp_data_dir):
     """Httpx AsyncClient wrapping the FastAPI app with the database
     already pointed at the temp directory.
     """
-    # Remote
-    from httpx import ASGITransport, AsyncClient
-    from server.main import app
-
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")

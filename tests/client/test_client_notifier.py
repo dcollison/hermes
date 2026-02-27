@@ -1,25 +1,16 @@
-"""Tests for hermes_client/notifier.py
-
-Covers:
-    - show_notification dispatches to _display correctly
-    - _save_b64_image: decodes data URIs, handles corrupt data
-    - _get_bundled_icon: resolves known and unknown keys
-    - _display: win11toast called with hero + logo override
-    - _display: winotify fallback uses status icon
-    - _display: graceful degradation through all backends
-    - Avatar temp file is cleaned up after display
-"""
-
 # Standard
 import base64
 import importlib
 import os
 from unittest.mock import MagicMock, patch
 
-# Remote
-# Remote
 from hermes_client import notifier
-from hermes_client.notifier import _display
+from hermes_client.notifier import (
+    _display,
+    _get_bundled_icon,
+    _save_b64_image,
+    show_notification,
+)
 
 # ---------------------------------------------------------------------------
 # _save_b64_image
@@ -32,8 +23,6 @@ class TestSaveB64Image:
         return f"data:{mime};base64,{b64}"
 
     def test_decodes_png_data_uri(self):
-        # Remote
-        from hermes_client.notifier import _save_b64_image
 
         uri = self._encode(b"\x89PNG fake png bytes")
         path = _save_b64_image(uri)
@@ -43,8 +32,6 @@ class TestSaveB64Image:
         os.unlink(path)
 
     def test_decodes_jpeg_data_uri(self):
-        # Remote
-        from hermes_client.notifier import _save_b64_image
 
         uri = self._encode(b"\xff\xd8 fake jpeg", mime="image/jpeg")
         path = _save_b64_image(uri)
@@ -53,8 +40,6 @@ class TestSaveB64Image:
         os.unlink(path)
 
     def test_raw_base64_without_header(self):
-        # Remote
-        from hermes_client.notifier import _save_b64_image
 
         raw_b64 = base64.b64encode(b"raw bytes").decode()
         path = _save_b64_image(raw_b64)
@@ -63,15 +48,11 @@ class TestSaveB64Image:
         os.unlink(path)
 
     def test_corrupt_data_returns_none(self):
-        # Remote
-        from hermes_client.notifier import _save_b64_image
 
         result = _save_b64_image("data:image/png;base64,NOT_VALID_BASE64!!!!")
         assert result is None
 
     def test_empty_string_returns_none(self):
-        # Remote
-        from hermes_client.notifier import _save_b64_image
 
         result = _save_b64_image("")
         # Empty string has no comma — treated as raw base64
@@ -87,8 +68,6 @@ class TestSaveB64Image:
 
 class TestGetBundledIcon:
     def test_known_icon_resolved(self):
-        # Remote
-        from hermes_client.notifier import _get_bundled_icon
 
         fake_ref = MagicMock()
         fake_ref.is_file.return_value = True
@@ -101,8 +80,6 @@ class TestGetBundledIcon:
         assert result == "/fake/path/success.png"
 
     def test_missing_icon_returns_none(self):
-        # Remote
-        from hermes_client.notifier import _get_bundled_icon
 
         fake_ref = MagicMock()
         fake_ref.is_file.return_value = False
@@ -114,15 +91,11 @@ class TestGetBundledIcon:
         assert result is None
 
     def test_empty_filename_returns_none(self):
-        # Remote
-        from hermes_client.notifier import _get_bundled_icon
 
         result = _get_bundled_icon("")
         assert result is None
 
     def test_importlib_error_returns_none(self):
-        # Remote
-        from hermes_client.notifier import _get_bundled_icon
 
         with patch("hermes_client.notifier.resources") as mock_res:
             mock_res.files.side_effect = Exception("package not found")
@@ -137,9 +110,6 @@ class TestGetBundledIcon:
 
 class TestDisplayWin11Toast:
     def _call_display(self, **kwargs):
-        # Remote
-        from hermes_client.notifier import _display
-
         defaults = dict(
             heading="Build Failed",
             body="CI Pipeline #42 failed",
@@ -240,9 +210,6 @@ class TestShowNotification:
             patch("hermes_client.notifier._display"),
             patch("hermes_client.notifier._get_bundled_icon", return_value=None),
         ):
-            # Remote
-            from hermes_client.notifier import show_notification
-
             show_notification(payload)
 
         for path in created_paths:
@@ -265,9 +232,6 @@ class TestShowNotification:
                 side_effect=lambda f: f"/icons/{f}" if f else None,
             ),
         ):
-            # Remote
-            from hermes_client.notifier import show_notification
-
             show_notification(payload)
 
         _, _, _, avatar, status_img = mock_display.call_args[0]
@@ -287,9 +251,6 @@ class TestShowNotification:
             patch("hermes_client.notifier._display") as mock_display,
             patch("hermes_client.notifier._get_bundled_icon", return_value=None),
         ):
-            # Remote
-            from hermes_client.notifier import show_notification
-
             show_notification(payload)
 
         _, _, _, avatar, status_img = mock_display.call_args[0]

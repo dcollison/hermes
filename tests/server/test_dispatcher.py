@@ -1,16 +1,3 @@
-"""Tests for hermes_server/dispatcher.py
-
-Covers:
-  - _client_is_relevant: subscription filtering
-  - _client_is_relevant: actor self-suppression
-  - _client_is_relevant: direct user ID match
-  - _client_is_relevant: group name match (via get_user_groups)
-  - _client_is_relevant: broadcast (no mentions)
-  - _client_is_relevant: manual event always delivered
-  - dispatch: only eligible clients receive the notification
-  - _send: logs success and failure correctly
-"""
-
 # Standard
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -77,7 +64,6 @@ class TestClientIsRelevant:
             yield
 
     async def _check(self, client, notification):
-        # Remote
         from hermes_server.dispatcher import _client_is_relevant
 
         return await _client_is_relevant(client, notification)
@@ -276,7 +262,6 @@ class TestDispatch:
             patch("hermes_server.dispatcher.save_client", new=AsyncMock()),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
-            # Remote
             from hermes_server.dispatcher import dispatch
 
             await dispatch(notif)
@@ -297,7 +282,6 @@ class TestDispatch:
             patch("hermes_server.dispatcher.append_log", new=AsyncMock()),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
-            # Remote
             from hermes_server.dispatcher import dispatch
 
             await dispatch(notif)
@@ -317,7 +301,6 @@ class TestDispatch:
             patch("hermes_server.dispatcher.append_log", new=AsyncMock()),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
-            # Remote
             from hermes_server.dispatcher import dispatch
 
             await dispatch(notif)
@@ -343,7 +326,6 @@ class TestDispatch:
             patch("hermes_server.dispatcher.save_client", new=AsyncMock()),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
-            # Remote
             from hermes_server.dispatcher import dispatch
 
             await dispatch(notif)
