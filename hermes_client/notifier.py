@@ -1,15 +1,3 @@
-"""Hermes Client — Toast notification display.
-
-Notification payload fields used here:
-  heading      str   — Toast title
-  body         str   — Toast body text
-  url          str   — Optional click-through URL
-  avatar_b64   str   — Optional base64 data URI; shown as the app logo (small, round)
-  status_image str   — Optional key: "success" | "failure" | "cancelled"
-                       Shown as a large hero banner image at the top of the toast
-  event_type   str   — pr / workitem / pipeline / manual
-"""
-
 # Standard
 import base64
 import logging
@@ -42,22 +30,20 @@ _EVENT_ICONS = {
 
 
 def show_notification(payload: dict):
-    """Display a Windows toast notification from a Hermes payload."""
+    """
+    Display a Windows toast notification from a Hermes payload.
+    """
     heading = payload.get("heading", __app_name__)
     body = payload.get("body", "")
     url = payload.get("url") or ""
     avatar_b64: str | None = payload.get("avatar_b64")
     status_image_key: str | None = payload.get("status_image")
-    event_type: str = payload.get("event_type", "")
 
     avatar_path: str | None = _save_b64_image(avatar_b64) if avatar_b64 else None
     status_image_path: str | None = (
         _get_bundled_icon(_STATUS_ICONS.get(status_image_key, ""))
         if status_image_key
         else None
-    )
-    event_icon_path: str | None = _get_bundled_icon(
-        _EVENT_ICONS.get(event_type, "hermes.png"),
     )
 
     try:
@@ -111,7 +97,10 @@ def _display(
 
 
 def _save_b64_image(b64: str) -> str | None:
-    """Decode a base64 data URI and write it to a temp file. Returns the path."""
+    """
+    Decode a base64 data URI and write it to a temp file.
+    :returns: The path.
+    """
     try:
         if "," in b64:
             header, data = b64.split(",", 1)
@@ -130,7 +119,9 @@ def _save_b64_image(b64: str) -> str | None:
 
 
 def _get_bundled_icon(filename: str) -> str | None:
-    """Return the filesystem path to a bundled icon, or None if not found."""
+    """
+    Return the filesystem path to a bundled icon, or None if not found.
+    """
     if not filename:
         return None
     try:

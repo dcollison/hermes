@@ -1,5 +1,3 @@
-"""Hermes Client Configuration."""
-
 # Standard
 import os
 import socket
@@ -10,11 +8,12 @@ from pydantic_settings import BaseSettings
 
 
 def _find_env_file() -> str | None:
-    """Search for .env.hermes-client in order:
-      1. Current working directory
-      2. User home directory
-      3. %APPDATA%/Hermes  (Windows)
-    Returns the first path found, or None.
+    """
+    Search for .env.hermes-client in order:
+        1. Current working directory
+        2. User home directory
+        3. %APPDATA%/Hermes  (Windows)
+    :returns: The first path found, or None.
     """
     candidates = [
         Path.cwd() / ".env.hermes-client",
@@ -31,7 +30,8 @@ def _find_env_file() -> str | None:
 
 
 def default_env_file_path() -> Path:
-    """Return the preferred path for writing a new .env.hermes-client file.
+    """
+    Return the preferred path for writing a new .env.hermes-client file.
     Chooses %APPDATA%/Hermes/ on Windows, home directory otherwise.
     """
     appdata = os.environ.get("APPDATA")

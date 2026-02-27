@@ -1,9 +1,3 @@
-"""Hermes Client — Azure DevOps identity resolution.
-
-Synchronous (blocking) helpers used at startup/configure time — before the
-asyncio event loop is running. Not used during normal notification receive.
-"""
-
 # Standard
 import base64
 import logging
@@ -14,7 +8,7 @@ import httpx
 
 logger = logging.getLogger("hermes.client.ado")
 
-API_VERSION = "5.1-preview"
+API_VERSION = "1.0"
 
 
 def _auth_headers(pat: str) -> dict:

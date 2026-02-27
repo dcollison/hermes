@@ -1,14 +1,3 @@
-"""Hermes Client CLI — `hermes-client` console script.
-
-Subcommands
------------
-  hermes-client configure            Resolve ADO identity and write config file
-  hermes-client run                  Start the notification listener
-  hermes-client startup install      Register as a Windows logon task
-  hermes-client startup remove       Remove the Windows logon task
-  hermes-client startup status       Check whether the task is registered
-"""
-
 # Standard
 import argparse
 import logging
