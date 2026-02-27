@@ -1,0 +1,47 @@
+[build-system]
+requires = ["uv_build>=0.10.6,<0.11.0"]
+build-backend = "uv_build"
+
+[project]
+name = "hermes"
+version = "1.0.0"
+description = "Hermes — Azure DevOps webhook notification system"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Leonardo UK Internal Licence" }
+
+# Shared dependencies used by both packages
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn>=0.29.0",
+    "httpx>=0.27.0",
+    "pydantic-settings>=2.0.0",
+    "win11toast>=0.35",
+]
+
+[project.optional-dependencies]
+server = [
+    "python-multipart>=0.0.9",  # form data parsing for FastAPI
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "httpx>=0.27",       # required by FastAPI test client
+]
+
+[project.scripts]
+hermes-server = "hermes_server.cli:main"
+hermes-client = "hermes_client.cli:main"
+
+[tool.uv.build-backend]
+module-name = ["hermes_server", "hermes_client"]
+module-root = ""
+
+# ---------------------------------------------------------------------------
+# pytest
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]

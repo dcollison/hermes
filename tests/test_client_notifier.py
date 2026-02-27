@@ -1,0 +1,327 @@
+"""
+Tests for hermes_client/notifier.py
+
+Covers:
+    - show_notification dispatches to _display correctly
+    - _save_b64_image: decodes data URIs, handles corrupt data
+    - _get_bundled_icon: resolves known and unknown keys
+    - _display: win11toast called with hero + logo override
+    - _display: winotify fallback uses status icon
+    - _display: graceful degradation through all backends
+    - Avatar temp file is cleaned up after display
+"""
+
+import base64
+import os
+import pytest
+import tempfile
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, call, patch
+
+
+# ---------------------------------------------------------------------------
+# _save_b64_image
+# ---------------------------------------------------------------------------
+
+class TestSaveB64Image:
+    def _encode(self, data: bytes, mime="image/png") -> str:
+        b64 = base64.b64encode(data).decode()
+        return f"data:{mime};base64,{b64}"
+
+    def test_decodes_png_data_uri(self):
+        from hermes_client.notifier import _save_b64_image
+        uri = self._encode(b"\x89PNG fake png bytes")
+        path = _save_b64_image(uri)
+        assert path is not None
+        assert path.endswith(".png")
+        assert os.path.exists(path)
+        os.unlink(path)
+
+    def test_decodes_jpeg_data_uri(self):
+        from hermes_client.notifier import _save_b64_image
+        uri = self._encode(b"\xFF\xD8 fake jpeg", mime="image/jpeg")
+        path = _save_b64_image(uri)
+        assert path is not None
+        assert path.endswith(".jpg")
+        os.unlink(path)
+
+    def test_raw_base64_without_header(self):
+        from hermes_client.notifier import _save_b64_image
+        raw_b64 = base64.b64encode(b"raw bytes").decode()
+        path = _save_b64_image(raw_b64)
+        assert path is not None
+        assert path.endswith(".png")  # defaults to png
+        os.unlink(path)
+
+    def test_corrupt_data_returns_none(self):
+        from hermes_client.notifier import _save_b64_image
+        result = _save_b64_image("data:image/png;base64,NOT_VALID_BASE64!!!!")
+        assert result is None
+
+    def test_empty_string_returns_none(self):
+        from hermes_client.notifier import _save_b64_image
+        result = _save_b64_image("")
+        # Empty string has no comma — treated as raw base64
+        # base64.b64decode("") returns b"" — valid but empty file written, or None
+        # Either is acceptable; just shouldn't raise
+        assert result is None or isinstance(result, str)
+
+
+# ---------------------------------------------------------------------------
+# _get_bundled_icon
+# ---------------------------------------------------------------------------
+
+class TestGetBundledIcon:
+    def test_known_icon_resolved(self):
+        from hermes_client.notifier import _get_bundled_icon
+
+        fake_ref = MagicMock()
+        fake_ref.is_file.return_value = True
+        fake_ref.__str__ = MagicMock(return_value="/fake/path/success.png")
+
+        with patch("hermes_client.notifier.resources") as mock_res:
+            mock_res.files.return_value.__truediv__ = MagicMock(return_value=fake_ref)
+            result = _get_bundled_icon("success.png")
+
+        assert result == "/fake/path/success.png"
+
+    def test_missing_icon_returns_none(self):
+        from hermes_client.notifier import _get_bundled_icon
+
+        fake_ref = MagicMock()
+        fake_ref.is_file.return_value = False
+
+        with patch("hermes_client.notifier.resources") as mock_res:
+            mock_res.files.return_value.__truediv__ = MagicMock(return_value=fake_ref)
+            result = _get_bundled_icon("nonexistent.png")
+
+        assert result is None
+
+    def test_empty_filename_returns_none(self):
+        from hermes_client.notifier import _get_bundled_icon
+        result = _get_bundled_icon("")
+        assert result is None
+
+    def test_importlib_error_returns_none(self):
+        from hermes_client.notifier import _get_bundled_icon
+        with patch("hermes_client.notifier.resources") as mock_res:
+            mock_res.files.side_effect = Exception("package not found")
+            result = _get_bundled_icon("success.png")
+        assert result is None
+
+
+# ---------------------------------------------------------------------------
+# _display — win11toast
+# ---------------------------------------------------------------------------
+
+class TestDisplayWin11Toast:
+    def _call_display(self, **kwargs):
+        from hermes_client.notifier import _display
+        defaults = dict(
+            heading="Build Failed",
+            body="CI Pipeline #42 failed",
+            url="http://ado/build/42",
+            avatar_path=None,
+            status_image_path=None,
+            event_icon_path=None,
+        )
+        defaults.update(kwargs)
+        _display(**defaults)
+
+    def test_win11toast_called(self):
+        mock_toast = MagicMock()
+        with patch.dict("sys.modules", {"win11toast": MagicMock(toast=mock_toast)}):
+            import importlib
+            import hermes_client.notifier as notifier
+            importlib.reload(notifier)
+            with patch("hermes_client.notifier._display") as mock_display:
+                # Call the real function directly
+                pass
+
+        # Direct test without reload complexity
+        with patch("hermes_client.notifier.resources") as _:
+            mock_win11 = MagicMock()
+            mock_win11.toast = MagicMock()
+            with patch.dict("sys.modules", {"win11toast": mock_win11}):
+                from hermes_client.notifier import _display
+                _display("Test", "Body", "", None, None, None)
+            mock_win11.toast.assert_called_once()
+
+    def test_hero_image_passed_when_status_image_provided(self):
+        mock_win11 = MagicMock()
+        with patch.dict("sys.modules", {"win11toast": mock_win11}):
+            from hermes_client.notifier import _display
+            _display("Build Failed", "body", "", None, "/icons/failure.png", None)
+
+        call_kwargs = mock_win11.toast.call_args[1]
+        assert "hero" in call_kwargs
+        assert call_kwargs["hero"]["src"] == "/icons/failure.png"
+
+    def test_app_logo_override_passed_when_avatar_provided(self):
+        mock_win11 = MagicMock()
+        with patch.dict("sys.modules", {"win11toast": mock_win11}):
+            from hermes_client.notifier import _display
+            _display("Build Failed", "body", "", "/tmp/avatar.png", None, None)
+
+        call_kwargs = mock_win11.toast.call_args[1]
+        assert "image" in call_kwargs
+        assert call_kwargs["image"]["placement"] == "appLogoOverride"
+
+    def test_both_hero_and_logo_provided_simultaneously(self):
+        mock_win11 = MagicMock()
+        with patch.dict("sys.modules", {"win11toast": mock_win11}):
+            from hermes_client.notifier import _display
+            _display("Title", "body", "", "/tmp/avatar.png", "/icons/success.png", None)
+
+        call_kwargs = mock_win11.toast.call_args[1]
+        assert "hero" in call_kwargs
+        assert "image" in call_kwargs
+
+    def test_no_on_click_when_no_url(self):
+        mock_win11 = MagicMock()
+        with patch.dict("sys.modules", {"win11toast": mock_win11}):
+            from hermes_client.notifier import _display
+            _display("Title", "body", "", None, None, None)
+
+        call_kwargs = mock_win11.toast.call_args[1]
+        assert call_kwargs.get("on_click") is None
+
+
+# ---------------------------------------------------------------------------
+# _display — fallback chain
+# ---------------------------------------------------------------------------
+
+class TestDisplayFallbacks:
+    def test_falls_back_to_winotify_when_win11toast_missing(self):
+        mock_winotify = MagicMock()
+        mock_notif = MagicMock()
+        mock_winotify.Notification.return_value = mock_notif
+        mock_winotify.audio = MagicMock()
+
+        no_win11 = {"win11toast": None}
+        with patch.dict("sys.modules", no_win11):
+            with patch.dict("sys.modules", {"winotify": mock_winotify}):
+                from hermes_client.notifier import _display
+                _display("Title", "body", "", None, None, None)
+
+        mock_winotify.Notification.assert_called_once()
+        mock_notif.show.assert_called_once()
+
+    def test_winotify_uses_status_icon_as_icon(self):
+        mock_winotify = MagicMock()
+        mock_notif = MagicMock()
+        mock_winotify.Notification.return_value = mock_notif
+        mock_winotify.audio = MagicMock()
+
+        with patch.dict("sys.modules", {"win11toast": None, "winotify": mock_winotify}):
+            from hermes_client.notifier import _display
+            _display("Title", "body", "", None, "/icons/failure.png", None)
+
+        call_kwargs = mock_winotify.Notification.call_args[1]
+        assert call_kwargs["icon"] == "/icons/failure.png"
+
+    def test_falls_back_to_plyer_when_both_toast_missing(self):
+        mock_plyer = MagicMock()
+        mock_plyer.notification = MagicMock()
+
+        with patch.dict("sys.modules", {"win11toast": None, "winotify": None, "plyer": mock_plyer}):
+            from hermes_client.notifier import _display
+            _display("Title", "body", "", None, None, None)
+
+        mock_plyer.notification.notify.assert_called_once()
+
+    def test_logs_when_all_backends_missing(self, caplog):
+        import logging
+        with patch.dict("sys.modules", {"win11toast": None, "winotify": None, "plyer": None}):
+            with caplog.at_level(logging.INFO, logger="hermes.client.notifier"):
+                from hermes_client.notifier import _display
+                _display("My Title", "My body", "", None, None, None)
+
+        assert "My Title" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# show_notification — integration
+# ---------------------------------------------------------------------------
+
+class TestShowNotification:
+    def _make_png_b64(self) -> str:
+        # Minimal valid-looking base64 PNG header
+        return "data:image/png;base64," + base64.b64encode(b"\x89PNG").decode()
+
+    def test_avatar_temp_file_cleaned_up(self):
+        created_paths = []
+
+        original_save = __import__(
+            "hermes_client.notifier", fromlist=["_save_b64_image"]
+        )._save_b64_image
+
+        def tracking_save(b64):
+            path = original_save(b64)
+            if path:
+                created_paths.append(path)
+            return path
+
+        payload = {
+            "heading": "PR Merged",
+            "body": "Feature branch merged",
+            "url": "",
+            "avatar_b64": self._make_png_b64(),
+            "status_image": None,
+            "event_type": "pr",
+        }
+
+        with (
+            patch("hermes_client.notifier._save_b64_image", side_effect=tracking_save),
+            patch("hermes_client.notifier._display"),
+            patch("hermes_client.notifier._get_bundled_icon", return_value=None),
+        ):
+            from hermes_client.notifier import show_notification
+            show_notification(payload)
+
+        for path in created_paths:
+            assert not os.path.exists(path), f"Temp file not cleaned up: {path}"
+
+    def test_show_notification_passes_status_image_path(self):
+        payload = {
+            "heading": "Build Succeeded",
+            "body": "All tests passed",
+            "url": "http://ado/build/1",
+            "avatar_b64": None,
+            "status_image": "success",
+            "event_type": "pipeline",
+        }
+
+        with (
+            patch("hermes_client.notifier._display") as mock_display,
+            patch(
+                "hermes_client.notifier._get_bundled_icon",
+                side_effect=lambda f: f"/icons/{f}" if f else None,
+            ),
+        ):
+            from hermes_client.notifier import show_notification
+            show_notification(payload)
+
+        _, _, _, avatar, status_img, _ = mock_display.call_args[0]
+        assert status_img == "/icons/success.png"
+        assert avatar is None
+
+    def test_show_notification_no_avatar_no_status_image(self):
+        payload = {
+            "heading": "Work Item Updated",
+            "body": "Bug #42 resolved",
+            "url": "",
+            "avatar_b64": None,
+            "status_image": None,
+            "event_type": "workitem",
+        }
+        with (
+            patch("hermes_client.notifier._display") as mock_display,
+            patch("hermes_client.notifier._get_bundled_icon", return_value=None),
+        ):
+            from hermes_client.notifier import show_notification
+            show_notification(payload)
+
+        _, _, _, avatar, status_img, _ = mock_display.call_args[0]
+        assert avatar is None
+        assert status_img is None
