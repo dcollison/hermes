@@ -9,8 +9,11 @@ Covers:
   - PR author always mentioned on merge
 """
 
-import pytest
+# Standard
 from unittest.mock import AsyncMock, patch
+
+# Remote
+import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -28,6 +31,7 @@ def no_avatar():
 
 class TestMentions:
     def setup_method(self):
+        # Remote
         from hermes_server.formatter import _mentions
 
         self._mentions = _mentions
@@ -103,6 +107,7 @@ class TestFormatPR:
         }
 
     async def _format(self, event_type, resource_overrides=None):
+        # Remote
         from hermes_server.formatter import format_webhook
 
         payload = self._payload(event_type, resource_overrides)
@@ -169,6 +174,7 @@ class TestFormatPR:
                 "content": "LGTM",
             },
         }
+        # Remote
         from hermes_server.formatter import format_webhook
 
         event_type = "ms.vss-code.git-pullrequest-comment-event"
@@ -184,6 +190,7 @@ class TestFormatPR:
         assert "reviewer-id" not in notif["mentions"]["user_ids"]
 
     async def test_unknown_event_returns_none(self):
+        # Remote
         from hermes_server.formatter import format_webhook
 
         result = await format_webhook("unknown.event.type", {})
@@ -218,6 +225,7 @@ class TestFormatPR:
 
 class TestFormatWorkItem:
     async def _format(self, event_type, fields_override=None):
+        # Remote
         from hermes_server.formatter import format_webhook
 
         fields = {
@@ -253,6 +261,7 @@ class TestFormatWorkItem:
         assert notif["mentions"]["user_ids"] == []
 
     async def test_workitem_url_converted_from_api_to_web(self):
+        # Remote
         from hermes_server.formatter import format_webhook
 
         payload = {
@@ -295,6 +304,7 @@ class TestFormatPipeline:
         }
 
     async def _format_build(self, result, requested_for=None):
+        # Remote
         from hermes_server.formatter import format_webhook
 
         return await format_webhook(
@@ -321,6 +331,7 @@ class TestFormatPipeline:
         assert "user-id" in notif["mentions"]["user_ids"]
 
     async def test_deployment_succeeded_status_image(self):
+        # Remote
         from hermes_server.formatter import format_webhook
 
         payload = {
@@ -343,6 +354,7 @@ class TestFormatPipeline:
         assert "deployer-id" in notif["mentions"]["user_ids"]
 
     async def test_deployment_failed_status_image(self):
+        # Remote
         from hermes_server.formatter import format_webhook
 
         payload = {
@@ -361,6 +373,7 @@ class TestFormatPipeline:
         assert notif["status_image"] == "failure"
 
     async def test_release_abandoned_status_image(self):
+        # Remote
         from hermes_server.formatter import format_webhook
 
         payload = {
@@ -375,6 +388,7 @@ class TestFormatPipeline:
         assert notif["status_image"] == "cancelled"
 
     async def test_release_created_no_status_image(self):
+        # Remote
         from hermes_server.formatter import format_webhook
 
         payload = {

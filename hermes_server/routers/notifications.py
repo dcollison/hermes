@@ -6,7 +6,6 @@ Hermes - Manual notification endpoints.
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional
 
 # Remote
 import httpx
@@ -29,8 +28,8 @@ router = APIRouter()
 class ManualNotificationRequest(BaseModel):
     heading: str
     body: str
-    url: Optional[str] = None
-    avatar_b64: Optional[str] = None
+    url: str | None = None
+    avatar_b64: str | None = None
 
 
 class ManualNotificationResponse(BaseModel):
@@ -108,8 +107,8 @@ async def send_manual_notification(body: ManualNotificationRequest):
 @router.get("/logs")
 async def get_notification_logs(
     limit: int = 50,
-    event_type: Optional[str] = None,
-    client_id: Optional[str] = None,
+    event_type: str | None = None,
+    client_id: str | None = None,
 ):
     """View recent notification delivery logs."""
     return await get_logs(limit=limit, event_type=event_type, client_id=client_id)

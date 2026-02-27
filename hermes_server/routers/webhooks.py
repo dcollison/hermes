@@ -15,7 +15,6 @@ import asyncio
 import hashlib
 import hmac
 import logging
-from typing import Optional
 
 # Remote
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def _verify_secret(body: bytes, signature: Optional[str]) -> bool:
+def _verify_secret(body: bytes, signature: str | None) -> bool:
     """Validate ADO shared secret if configured."""
     if not settings.ADO_WEBHOOK_SECRET:
         return True  # No secret configured - accept all
@@ -46,7 +45,7 @@ def _verify_secret(body: bytes, signature: Optional[str]) -> bool:
 @router.post("/ado")
 async def receive_webhook(
     request: Request,
-    x_hub_signature: Optional[str] = Header(None),
+    x_hub_signature: str | None = Header(None),
 ):
     """
     Receive Azure DevOps webhook events.

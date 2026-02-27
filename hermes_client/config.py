@@ -4,13 +4,12 @@
 import os
 import socket
 from pathlib import Path
-from typing import List, Optional
 
 # Remote
 from pydantic_settings import BaseSettings
 
 
-def _find_env_file() -> Optional[str]:
+def _find_env_file() -> str | None:
     """
     Search for .env.hermes-client in order:
       1. Current working directory
@@ -62,7 +61,7 @@ class ClientSettings(BaseSettings):
     ADO_ORGANIZATION_URL: str = ""
     ADO_PAT: str = ""
 
-    SUBSCRIPTIONS: List[str] = ["pr", "workitem", "pipeline", "manual"]
+    SUBSCRIPTIONS: list[str] = ["pr", "workitem", "pipeline", "manual"]
 
     model_config = {
         "env_file": _find_env_file(),
@@ -78,7 +77,7 @@ class ClientSettings(BaseSettings):
             and self.ADO_DISPLAY_NAME
         )
 
-    def write_env_file(self, path: Optional[Path] = None) -> Path:
+    def write_env_file(self, path: Path | None = None) -> Path:
         """
         Write current settings to an .env.hermes-client file.
         Creates the file (and parent directories) if it doesn't exist.

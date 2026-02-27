@@ -23,7 +23,6 @@ import logging.handlers
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -31,23 +30,21 @@ logger = logging.getLogger(__name__)
 # Paths & tunable constants
 # ---------------------------------------------------------------------------
 
-DATA_DIR = os.environ.get(
-    "HERMES_DATA_DIR",
-    os.path.join(os.path.dirname(__file__), "..", "data"),
-)
+# Local
+from .config import settings as _settings
+
+DATA_DIR = _settings.DATA_DIR
 CLIENTS_FILE = os.path.join(DATA_DIR, "clients.json")
 LOG_FILE = os.path.join(DATA_DIR, "notifications.log")
 
-# Rotate when the active log reaches this size (bytes). Default: 5 MB.
-LOG_MAX_BYTES = int(os.environ.get("HERMES_LOG_MAX_BYTES", str(5 * 1024 * 1024)))
-# Number of rolled files to keep alongside the active log.
-LOG_BACKUP_COUNT = int(os.environ.get("HERMES_LOG_BACKUP_COUNT", "3"))
+LOG_MAX_BYTES = _settings.LOG_MAX_BYTES
+LOG_BACKUP_COUNT = _settings.LOG_BACKUP_COUNT
 
 _lock = asyncio.Lock()
 
 # Dedicated Python logger that writes one JSON line per notification event.
 # Configured in init_db() once the data directory exists.
-_notif_logger: Optional[logging.Logger] = None
+_notif_logger: logging.Logger | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -127,13 +124,13 @@ async def get_all_clients() -> list:
     return list(data.values())
 
 
-async def get_client(client_id: str) -> Optional[dict]:
+async def get_client(client_id: str) -> dict | None:
     async with _lock:
         data = _read_json(CLIENTS_FILE)
     return data.get(client_id)
 
 
-async def get_client_by_callback(callback_url: str) -> Optional[dict]:
+async def get_client_by_callback(callback_url: str) -> dict | None:
     async with _lock:
         data = _read_json(CLIENTS_FILE)
     for client in data.values():
@@ -190,8 +187,8 @@ def _log_files_newest_first() -> list[str]:
 
 async def get_logs(
     limit: int = 50,
-    event_type: Optional[str] = None,
-    client_id: Optional[str] = None,
+    event_type: str | None = None,
+    client_id: str | None = None,
 ) -> list:
     """
     Read log entries across all rolled files, returning the most recent

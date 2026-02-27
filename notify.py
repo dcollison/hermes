@@ -18,6 +18,7 @@ import argparse
 import base64
 import os
 import sys
+from pathlib import Path
 
 try:
     # Remote
@@ -26,16 +27,14 @@ except ImportError:
     print("ERROR: httpx is required.  Run: pip install httpx")
     sys.exit(1)
 
-# ---------------------------------------------------------------------------
-# Config — read from env / .env file if present
-# ---------------------------------------------------------------------------
 
-
-def _load_dotenv(path: str = ".env"):
-    """Tiny .env loader — no dependencies."""
-    if not os.path.exists(path):
+def _load_dotenv(path: Path = Path(".env")):
+    """
+    Tiny .env loader — no dependencies.
+    """
+    if not path.exists():
         return
-    with open(path, encoding="utf-8") as f:
+    with path.open() as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
@@ -47,11 +46,6 @@ def _load_dotenv(path: str = ".env"):
 _load_dotenv()
 
 DEFAULT_SERVER = os.environ.get("HERMES_SERVER_URL", "http://localhost:8000")
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _encode_image(path: str) -> str:
@@ -69,11 +63,6 @@ def _encode_image(path: str) -> str:
     with open(path, "rb") as f:
         data = base64.b64encode(f.read()).decode()
     return f"data:{mime};base64,{data}"
-
-
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
 
 
 def main():
@@ -94,6 +83,7 @@ Examples:
         "--image",
         "-i",
         metavar="FILE",
+        type=Path,
         help="Optional image file to include (PNG, JPG, etc.)",
     )
     parser.add_argument(
@@ -121,7 +111,7 @@ Examples:
     }
 
     if args.image:
-        if not os.path.isfile(args.image):
+        if not args.image.is_file():
             print(f"ERROR: Image file not found: {args.image}", file=sys.stderr)
             sys.exit(1)
         try:

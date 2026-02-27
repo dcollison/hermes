@@ -9,7 +9,6 @@ asyncio event loop is running. Not used during normal notification receive.
 import base64
 import logging
 import socket
-from typing import Optional
 
 # Remote
 import httpx

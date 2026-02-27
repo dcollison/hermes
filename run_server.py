@@ -17,7 +17,7 @@ Or with a virtual environment:
 import sys
 from pathlib import Path
 
-# Ensure the hermes package root is on the path
+# Ensure the Hermes package root is on the path
 sys.path.insert(0, str(Path(__file__)))
 
 # Remote

@@ -173,7 +173,7 @@ class TestDisplayWin11Toast:
                 # Remote
                 from hermes_client.notifier import _display
 
-                _display("Test", "Body", "", None, None, None)
+                _display("Test", "Body", "", None, None)
             mock_win11.toast.assert_called_once()
 
     def test_hero_image_passed_when_status_image_provided(self):
@@ -182,7 +182,7 @@ class TestDisplayWin11Toast:
             # Remote
             from hermes_client.notifier import _display
 
-            _display("Build Failed", "body", "", None, "/icons/failure.png", None)
+            _display("Build Failed", "body", "", None, "/icons/failure.png")
 
         call_kwargs = mock_win11.toast.call_args[1]
         assert "hero" in call_kwargs
@@ -194,7 +194,7 @@ class TestDisplayWin11Toast:
             # Remote
             from hermes_client.notifier import _display
 
-            _display("Build Failed", "body", "", "/tmp/avatar.png", None, None)
+            _display("Build Failed", "body", "", "/tmp/avatar.png", None)
 
         call_kwargs = mock_win11.toast.call_args[1]
         assert "image" in call_kwargs
@@ -206,7 +206,7 @@ class TestDisplayWin11Toast:
             # Remote
             from hermes_client.notifier import _display
 
-            _display("Title", "body", "", "/tmp/avatar.png", "/icons/success.png", None)
+            _display("Title", "body", "", "/tmp/avatar.png", "/icons/success.png")
 
         call_kwargs = mock_win11.toast.call_args[1]
         assert "hero" in call_kwargs
@@ -218,7 +218,7 @@ class TestDisplayWin11Toast:
             # Remote
             from hermes_client.notifier import _display
 
-            _display("Title", "body", "", None, None, None)
+            _display("Title", "body", "", None, None)
 
         call_kwargs = mock_win11.toast.call_args[1]
         assert call_kwargs.get("on_click") is None
@@ -242,7 +242,7 @@ class TestDisplayFallbacks:
                 # Remote
                 from hermes_client.notifier import _display
 
-                _display("Title", "body", "", None, None, None)
+                _display("Title", "body", "", None, None)
 
         mock_winotify.Notification.assert_called_once()
         mock_notif.show.assert_called_once()
@@ -257,7 +257,7 @@ class TestDisplayFallbacks:
             # Remote
             from hermes_client.notifier import _display
 
-            _display("Title", "body", "", None, "/icons/failure.png", None)
+            _display("Title", "body", "", None, "/icons/failure.png")
 
         call_kwargs = mock_winotify.Notification.call_args[1]
         assert call_kwargs["icon"] == "/icons/failure.png"
@@ -272,7 +272,7 @@ class TestDisplayFallbacks:
             # Remote
             from hermes_client.notifier import _display
 
-            _display("Title", "body", "", None, None, None)
+            _display("Title", "body", "", None, None)
 
         mock_plyer.notification.notify.assert_called_once()
 
@@ -287,7 +287,7 @@ class TestDisplayFallbacks:
                 # Remote
                 from hermes_client.notifier import _display
 
-                _display("My Title", "My body", "", None, None, None)
+                _display("My Title", "My body", "", None, None)
 
         assert "My Title" in caplog.text
 

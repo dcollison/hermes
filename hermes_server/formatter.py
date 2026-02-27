@@ -18,7 +18,6 @@ PR author is always included so they are notified when their own PR completes.
 
 # Standard
 import logging
-from typing import Optional
 
 # Local
 from .ado_client import get_user_avatar_b64
@@ -27,8 +26,8 @@ logger = logging.getLogger(__name__)
 
 
 def _mentions(
-    *identity_dicts: Optional[dict],
-    actor_id: Optional[str] = None,
+    *identity_dicts: dict | None,
+    actor_id: str | None = None,
 ) -> dict:
     """
     Build a mentions dict from ADO identity dicts.
@@ -53,7 +52,7 @@ def _mentions(
     return {"user_ids": user_ids, "names": names}
 
 
-async def format_webhook(event_type: str, payload: dict) -> Optional[dict]:
+async def format_webhook(event_type: str, payload: dict) -> dict | None:
     """
     Parse an ADO webhook payload and return a notification dict.
     Returns None if the event type is not handled.
@@ -165,7 +164,7 @@ async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
         heading = "PR Updated"
         mentioned = _mentions(*reviewers, actor_id=actor_id)
 
-    avatar = await get_user_avatar_b64(actor_id, actor_name)
+    avatar = await get_user_avatar_b64(actor_id)
 
     return {
         "event_type": "pr",
@@ -237,7 +236,7 @@ async def _format_workitem(
         if state:
             body += f" [{state}]"
 
-    avatar = await get_user_avatar_b64(actor_id, actor_name)
+    avatar = await get_user_avatar_b64(actor_id)
     mentioned = _mentions(
         assigned_to_raw if isinstance(assigned_to_raw, dict) else None,
         actor_id=actor_id,
@@ -286,8 +285,8 @@ _DEPLOY_STATUS_IMAGE = {
 
 
 async def _format_pipeline(event_type: str, resource: dict, project: str) -> dict:
-    actor_id: Optional[str] = None
-    status_image: Optional[str] = None
+    actor_id: str | None = None
+    status_image: str | None = None
 
     if event_type == "build.complete":
         build_id = resource.get("id", "")
@@ -359,7 +358,7 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         body = f"Pipeline event: {event_type}"
         mentioned = {"user_ids": [], "names": []}
 
-    avatar = await get_user_avatar_b64(actor_id, actor_name)
+    avatar = await get_user_avatar_b64(actor_id)
 
     return {
         "event_type": "pipeline",

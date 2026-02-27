@@ -17,7 +17,9 @@ import logging
 import os
 import tempfile
 from importlib import resources
-from typing import Optional
+
+# Remote
+from win11toast import toast
 
 # Local
 from . import __app_id__, __app_name__
@@ -45,22 +47,22 @@ def show_notification(payload: dict):
     heading = payload.get("heading", __app_name__)
     body = payload.get("body", "")
     url = payload.get("url") or ""
-    avatar_b64: Optional[str] = payload.get("avatar_b64")
-    status_image_key: Optional[str] = payload.get("status_image")
+    avatar_b64: str | None = payload.get("avatar_b64")
+    status_image_key: str | None = payload.get("status_image")
     event_type: str = payload.get("event_type", "")
 
-    avatar_path: Optional[str] = _save_b64_image(avatar_b64) if avatar_b64 else None
-    status_image_path: Optional[str] = (
+    avatar_path: str | None = _save_b64_image(avatar_b64) if avatar_b64 else None
+    status_image_path: str | None = (
         _get_bundled_icon(_STATUS_ICONS.get(status_image_key, ""))
         if status_image_key
         else None
     )
-    event_icon_path: Optional[str] = _get_bundled_icon(
+    event_icon_path: str | None = _get_bundled_icon(
         _EVENT_ICONS.get(event_type, "hermes.png")
     )
 
     try:
-        _display(heading, body, url, avatar_path, status_image_path, event_icon_path)
+        _display(heading, body, url, avatar_path, status_image_path)
     finally:
         if avatar_path and os.path.exists(avatar_path):
             try:
@@ -73,15 +75,10 @@ def _display(
     heading: str,
     body: str,
     url: str,
-    avatar_path: Optional[str],  # small round logo (app logo override)
-    status_image_path: Optional[str],  # large hero banner
-    event_icon_path: Optional[str],  # fallback icon for winotify
+    avatar_path: str | None,
+    status_image_path: str | None,
 ):
-    # --- win11toast ---
     try:
-        # Remote
-        from win11toast import toast
-
         kwargs: dict = {}
 
         # Hero image: large banner shown at the top of the toast
@@ -108,59 +105,13 @@ def _display(
         )
         logger.debug("Toast shown via win11toast")
         return
-    except ImportError:
-        pass
     except Exception as e:
         logger.debug(f"win11toast failed: {e}")
-
-    # --- winotify ---
-    # winotify doesn't support hero images; use the status icon as the toast icon
-    # so the result is still visually distinct.
-    try:
-        # Remote
-        from winotify import Notification, audio
-
-        icon = status_image_path or avatar_path or event_icon_path or ""
-        notif = Notification(
-            app_id=__app_name__,
-            title=heading,
-            msg=body,
-            duration="short",
-            icon=icon,
-        )
-        if url:
-            notif.add_actions(label="Open", launch=url)
-        notif.set_audio(audio.Default, loop=False)
-        notif.show()
-        logger.debug("Toast shown via winotify")
-        return
-    except ImportError:
-        pass
-    except Exception as e:
-        logger.debug(f"winotify failed: {e}")
-
-    # --- plyer ---
-    try:
-        # Remote
-        from plyer import notification as plyer_notification
-
-        plyer_notification.notify(
-            title=heading,
-            message=body,
-            app_name=__app_name__,
-            timeout=8,
-        )
-        logger.debug("Notification shown via plyer")
-        return
-    except ImportError:
-        pass
-    except Exception as e:
-        logger.debug(f"plyer failed: {e}")
 
     logger.info(f"[TOAST] {heading}: {body}")
 
 
-def _save_b64_image(b64: str) -> Optional[str]:
+def _save_b64_image(b64: str) -> str | None:
     """Decode a base64 data URI and write it to a temp file. Returns the path."""
     try:
         if "," in b64:
@@ -179,7 +130,7 @@ def _save_b64_image(b64: str) -> Optional[str]:
         return None
 
 
-def _get_bundled_icon(filename: str) -> Optional[str]:
+def _get_bundled_icon(filename: str) -> str | None:
     """Return the filesystem path to a bundled icon, or None if not found."""
     if not filename:
         return None

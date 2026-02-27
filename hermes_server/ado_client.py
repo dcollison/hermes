@@ -1,6 +1,6 @@
 """
 Azure DevOps API helpers.
-Targets ADO Server with API version 5.1-preview.
+Targets ADO Server with API version 1.0.
 
 Caches avatar images and group memberships in-process so repeated webhook
 events for the same users don't hammer the ADO API.
@@ -9,8 +9,6 @@ events for the same users don't hammer the ADO API.
 # Standard
 import base64
 import logging
-from functools import lru_cache
-from typing import Optional
 
 # Remote
 import httpx
@@ -20,10 +18,10 @@ from .config import settings
 
 logger = logging.getLogger(__name__)
 
-API_VERSION = "5.1-preview"
+API_VERSION = "1.0"
 
 # In-process caches (survive for the lifetime of the server process).
-_avatar_cache: dict[str, Optional[str]] = {}
+_avatar_cache: dict[str, str] | None = {}
 _group_cache: dict[str, list[str]] = {}
 
 
@@ -35,10 +33,7 @@ def _auth_headers() -> dict:
     }
 
 
-async def get_user_avatar_b64(
-    identity_id: Optional[str],
-    display_name: Optional[str] = None,
-) -> Optional[str]:
+async def get_user_avatar_b64(identity_id: str | None) -> str | None:
     """
     Fetch a user's avatar from ADO and return it as a base64 data URI.
     Results are cached for the lifetime of the process.
@@ -74,7 +69,7 @@ async def get_user_groups(identity_id: str) -> list[str]:
     Results are cached per user for the lifetime of the process.
 
     Uses the Identities API to expand group memberships:
-      GET /_apis/identities/{id}?queryMembership=Direct
+        GET /_apis/identities/{id}?queryMembership=Direct
     """
     if not settings.ADO_PAT or not settings.ADO_ORGANIZATION_URL or not identity_id:
         return []

@@ -7,7 +7,6 @@ notifications to the right people based on mentions and group membership.
 
 # Standard
 import logging
-from typing import List, Optional
 
 # Remote
 from fastapi import APIRouter, HTTPException
@@ -32,7 +31,7 @@ class RegisterRequest(BaseModel):
     callback_url: str  # e.g. http://192.168.1.50:9000/notify
     ado_user_id: str  # ADO identity ID (GUID) — used for mention matching
     display_name: str  # ADO display name — used for group name matching
-    subscriptions: List[str] = ["pr", "workitem", "pipeline", "manual"]
+    subscriptions: list[str] = ["pr", "workitem", "pipeline", "manual"]
 
 
 class ClientResponse(BaseModel):
@@ -41,7 +40,7 @@ class ClientResponse(BaseModel):
     callback_url: str
     ado_user_id: str
     display_name: str
-    subscriptions: List[str]
+    subscriptions: list[str]
     active: bool
 
 
