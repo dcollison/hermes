@@ -91,7 +91,7 @@ async def register_client(body: RegisterRequest):
     return _to_response(client)
 
 
-@router.get("/", response_model=List[ClientResponse])
+@router.get("/", response_model=list[ClientResponse])
 async def list_clients():
     """List all registered clients."""
     clients = await get_all_clients()
@@ -108,7 +108,7 @@ async def unregister_client(client_id: str):
 
 
 @router.put("/{client_id}/subscriptions")
-async def update_subscriptions(client_id: str, subscriptions: List[str]):
+async def update_subscriptions(client_id: str, subscriptions: list[str]):
     """Update which event types a client subscribes to."""
     client = await get_client(client_id)
     if not client:

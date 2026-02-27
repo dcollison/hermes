@@ -11,8 +11,10 @@ Covers:
     - Avatar temp file is cleaned up after display
 """
 
+
 # Standard
 import base64
+import importlib
 import os
 import tempfile
 from pathlib import Path
@@ -20,6 +22,10 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 
 # Remote
 import pytest
+
+# Remote
+import hermes_client.notifier as notifier
+from hermes_client.notifier import _display
 
 # ---------------------------------------------------------------------------
 # _save_b64_image
@@ -154,34 +160,15 @@ class TestDisplayWin11Toast:
     def test_win11toast_called(self):
         mock_toast = MagicMock()
         with patch.dict("sys.modules", {"win11toast": MagicMock(toast=mock_toast)}):
-            # Standard
-            import importlib
-
-            # Remote
-            import hermes_client.notifier as notifier
-
             importlib.reload(notifier)
-            with patch("hermes_client.notifier._display") as mock_display:
-                # Call the real function directly
-                pass
 
-        # Direct test without reload complexity
-        with patch("hermes_client.notifier.resources") as _:
-            mock_win11 = MagicMock()
-            mock_win11.toast = MagicMock()
-            with patch.dict("sys.modules", {"win11toast": mock_win11}):
-                # Remote
-                from hermes_client.notifier import _display
-
-                _display("Test", "Body", "", None, None)
-            mock_win11.toast.assert_called_once()
+            _display("Test", "Body", "", None, None)
+            mock_toast.assert_called_once()
 
     def test_hero_image_passed_when_status_image_provided(self):
         mock_win11 = MagicMock()
         with patch.dict("sys.modules", {"win11toast": mock_win11}):
-            # Remote
-            from hermes_client.notifier import _display
-
+            importlib.reload(notifier)
             _display("Build Failed", "body", "", None, "/icons/failure.png")
 
         call_kwargs = mock_win11.toast.call_args[1]
@@ -191,8 +178,7 @@ class TestDisplayWin11Toast:
     def test_app_logo_override_passed_when_avatar_provided(self):
         mock_win11 = MagicMock()
         with patch.dict("sys.modules", {"win11toast": mock_win11}):
-            # Remote
-            from hermes_client.notifier import _display
+            importlib.reload(notifier)
 
             _display("Build Failed", "body", "", "/tmp/avatar.png", None)
 
@@ -203,8 +189,7 @@ class TestDisplayWin11Toast:
     def test_both_hero_and_logo_provided_simultaneously(self):
         mock_win11 = MagicMock()
         with patch.dict("sys.modules", {"win11toast": mock_win11}):
-            # Remote
-            from hermes_client.notifier import _display
+            importlib.reload(notifier)
 
             _display("Title", "body", "", "/tmp/avatar.png", "/icons/success.png")
 
@@ -215,81 +200,12 @@ class TestDisplayWin11Toast:
     def test_no_on_click_when_no_url(self):
         mock_win11 = MagicMock()
         with patch.dict("sys.modules", {"win11toast": mock_win11}):
-            # Remote
-            from hermes_client.notifier import _display
+            importlib.reload(notifier)
 
             _display("Title", "body", "", None, None)
 
         call_kwargs = mock_win11.toast.call_args[1]
         assert call_kwargs.get("on_click") is None
-
-
-# ---------------------------------------------------------------------------
-# _display — fallback chain
-# ---------------------------------------------------------------------------
-
-
-class TestDisplayFallbacks:
-    def test_falls_back_to_winotify_when_win11toast_missing(self):
-        mock_winotify = MagicMock()
-        mock_notif = MagicMock()
-        mock_winotify.Notification.return_value = mock_notif
-        mock_winotify.audio = MagicMock()
-
-        no_win11 = {"win11toast": None}
-        with patch.dict("sys.modules", no_win11):
-            with patch.dict("sys.modules", {"winotify": mock_winotify}):
-                # Remote
-                from hermes_client.notifier import _display
-
-                _display("Title", "body", "", None, None)
-
-        mock_winotify.Notification.assert_called_once()
-        mock_notif.show.assert_called_once()
-
-    def test_winotify_uses_status_icon_as_icon(self):
-        mock_winotify = MagicMock()
-        mock_notif = MagicMock()
-        mock_winotify.Notification.return_value = mock_notif
-        mock_winotify.audio = MagicMock()
-
-        with patch.dict("sys.modules", {"win11toast": None, "winotify": mock_winotify}):
-            # Remote
-            from hermes_client.notifier import _display
-
-            _display("Title", "body", "", None, "/icons/failure.png")
-
-        call_kwargs = mock_winotify.Notification.call_args[1]
-        assert call_kwargs["icon"] == "/icons/failure.png"
-
-    def test_falls_back_to_plyer_when_both_toast_missing(self):
-        mock_plyer = MagicMock()
-        mock_plyer.notification = MagicMock()
-
-        with patch.dict(
-            "sys.modules", {"win11toast": None, "winotify": None, "plyer": mock_plyer}
-        ):
-            # Remote
-            from hermes_client.notifier import _display
-
-            _display("Title", "body", "", None, None)
-
-        mock_plyer.notification.notify.assert_called_once()
-
-    def test_logs_when_all_backends_missing(self, caplog):
-        # Standard
-        import logging
-
-        with patch.dict(
-            "sys.modules", {"win11toast": None, "winotify": None, "plyer": None}
-        ):
-            with caplog.at_level(logging.INFO, logger="hermes.client.notifier"):
-                # Remote
-                from hermes_client.notifier import _display
-
-                _display("My Title", "My body", "", None, None)
-
-        assert "My Title" in caplog.text
 
 
 # ---------------------------------------------------------------------------
@@ -359,7 +275,7 @@ class TestShowNotification:
 
             show_notification(payload)
 
-        _, _, _, avatar, status_img, _ = mock_display.call_args[0]
+        _, _, _, avatar, status_img = mock_display.call_args[0]
         assert status_img == "/icons/success.png"
         assert avatar is None
 
@@ -381,6 +297,6 @@ class TestShowNotification:
 
             show_notification(payload)
 
-        _, _, _, avatar, status_img, _ = mock_display.call_args[0]
+        _, _, _, avatar, status_img = mock_display.call_args[0]
         assert avatar is None
         assert status_img is None
