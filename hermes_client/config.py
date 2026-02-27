@@ -1,4 +1,5 @@
 # Standard
+import json
 import os
 import socket
 from pathlib import Path
@@ -98,7 +99,7 @@ class ClientSettings(BaseSettings):
             f"ADO_USER_ID={self.ADO_USER_ID}",
             f"ADO_DISPLAY_NAME={self.ADO_DISPLAY_NAME}",
             "",
-            f"SUBSCRIPTIONS={self.SUBSCRIPTIONS}",
+            f"SUBSCRIPTIONS={json.dumps(self.SUBSCRIPTIONS)}",
         ]
         target.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return target
