@@ -3,15 +3,11 @@ Shared pytest fixtures for Hermes tests.
 """
 
 # Standard
-import json
-import os
-import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 # Remote
 import pytest
-import pytest_asyncio
 
 # ---------------------------------------------------------------------------
 # Temporary data directory — isolates every test from real files

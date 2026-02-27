@@ -11,17 +11,13 @@ Covers:
     - Avatar temp file is cleaned up after display
 """
 
-
 # Standard
 import base64
 import importlib
 import os
-import tempfile
-from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 # Remote
-import pytest
 
 # Remote
 import hermes_client.notifier as notifier

@@ -13,10 +13,8 @@ Subcommands
 # Standard
 import argparse
 import logging
-import sys
 import threading
 import time
-from pathlib import Path
 
 # Remote
 import httpx
@@ -26,7 +24,7 @@ from fastapi.responses import JSONResponse
 
 # Local
 from . import __version__
-from .config import ClientSettings, _find_env_file, default_env_file_path
+from .config import ClientSettings, default_env_file_path
 from .notifier import show_notification
 
 logging.basicConfig(
