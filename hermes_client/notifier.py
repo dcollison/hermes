@@ -1,5 +1,4 @@
-"""
-Hermes Client — Toast notification display.
+"""Hermes Client — Toast notification display.
 
 Notification payload fields used here:
   heading      str   — Toast title
@@ -58,7 +57,7 @@ def show_notification(payload: dict):
         else None
     )
     event_icon_path: str | None = _get_bundled_icon(
-        _EVENT_ICONS.get(event_type, "hermes.png")
+        _EVENT_ICONS.get(event_type, "hermes.png"),
     )
 
     try:

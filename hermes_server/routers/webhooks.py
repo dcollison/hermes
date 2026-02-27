@@ -1,5 +1,4 @@
-"""
-Hermes - Webhook receiver endpoint for Azure DevOps 5.1-preview events.
+"""Hermes - Webhook receiver endpoint for Azure DevOps 5.1-preview events.
 
 ADO sends webhooks as POST requests with JSON bodies.
 Supported event types:
@@ -47,8 +46,7 @@ async def receive_webhook(
     request: Request,
     x_hub_signature: str | None = Header(None),
 ):
-    """
-    Receive Azure DevOps webhook events.
+    """Receive Azure DevOps webhook events.
     Configure your ADO service hook to POST to: {SERVER_URL}/webhooks/ado
     """
     body = await request.body()

@@ -1,5 +1,4 @@
-"""
-Tests for hermes_server/formatter.py
+"""Tests for hermes_server/formatter.py
 
 Covers:
   - _mentions() logic (exclusion of actor, deduplication)
@@ -19,7 +18,8 @@ import pytest
 @pytest.fixture(autouse=True)
 def no_avatar():
     with patch(
-        "hermes_server.ado_client.get_user_avatar_b64", new=AsyncMock(return_value=None)
+        "hermes_server.ado_client.get_user_avatar_b64",
+        new=AsyncMock(return_value=None),
     ):
         yield
 
@@ -75,7 +75,7 @@ class TestMentions:
 
     def test_uses_uniqueName_as_fallback_id(self):
         result = self._mentions(
-            {"uniqueName": "alice@corp.com", "displayName": "Alice"}
+            {"uniqueName": "alice@corp.com", "displayName": "Alice"},
         )
         assert result["user_ids"] == ["alice@corp.com"]
 
@@ -308,7 +308,8 @@ class TestFormatPipeline:
         from hermes_server.formatter import format_webhook
 
         return await format_webhook(
-            "build.complete", self._build_payload(result, requested_for)
+            "build.complete",
+            self._build_payload(result, requested_for),
         )
 
     @pytest.mark.parametrize(
@@ -326,7 +327,8 @@ class TestFormatPipeline:
 
     async def test_build_notifies_triggerer(self):
         notif = await self._format_build(
-            "succeeded", {"id": "user-id", "displayName": "Alice"}
+            "succeeded",
+            {"id": "user-id", "displayName": "Alice"},
         )
         assert "user-id" in notif["mentions"]["user_ids"]
 
@@ -342,13 +344,14 @@ class TestFormatPipeline:
                     "_links": {"web": {"href": "http://ado/release/1"}},
                 },
                 "deployment": {
-                    "requestedFor": {"id": "deployer-id", "displayName": "Bob"}
+                    "requestedFor": {"id": "deployer-id", "displayName": "Bob"},
                 },
             },
             "resourceContainers": {"project": {"name": "MyProject"}},
         }
         notif = await format_webhook(
-            "ms.vss-release.deployment-completed-event", payload
+            "ms.vss-release.deployment-completed-event",
+            payload,
         )
         assert notif["status_image"] == "success"
         assert "deployer-id" in notif["mentions"]["user_ids"]
@@ -362,13 +365,14 @@ class TestFormatPipeline:
                 "environment": {"name": "Production", "status": "failed"},
                 "release": {"name": "Release-1", "_links": {"web": {"href": ""}}},
                 "deployment": {
-                    "requestedFor": {"id": "deployer-id", "displayName": "Bob"}
+                    "requestedFor": {"id": "deployer-id", "displayName": "Bob"},
                 },
             },
             "resourceContainers": {},
         }
         notif = await format_webhook(
-            "ms.vss-release.deployment-completed-event", payload
+            "ms.vss-release.deployment-completed-event",
+            payload,
         )
         assert notif["status_image"] == "failure"
 

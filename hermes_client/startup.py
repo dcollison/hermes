@@ -1,5 +1,4 @@
-"""
-Hermes Client — Windows startup integration via Task Scheduler.
+"""Hermes Client — Windows startup integration via Task Scheduler.
 
 Uses Windows Task Scheduler rather than the Startup folder so the task:
   - Runs hidden (no console window) using pythonw.exe
@@ -30,8 +29,7 @@ TASK_DESCRIPTION = "Hermes — Azure DevOps notification client"
 
 
 def _resolve_paths() -> tuple[str, str]:
-    """
-    Return (pythonw_path, script_path) for use in the Task Scheduler command.
+    """Return (pythonw_path, script_path) for use in the Task Scheduler command.
 
     uv installs console scripts as .exe wrappers that embed the full path to
     the venv's Python, so we don't need to locate Python separately — we just
@@ -66,8 +64,7 @@ def _resolve_paths() -> tuple[str, str]:
 
 
 def _build_task_xml(pythonw: str, script: str) -> str:
-    """
-    Generate a Task Scheduler XML definition.
+    """Generate a Task Scheduler XML definition.
 
     The task calls:
         pythonw.exe "<path-to-hermes-client.exe>"
@@ -129,7 +126,10 @@ def install():
 
     # schtasks /Create /XML requires a file path, not stdin
     with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".xml", delete=False, encoding="utf-16"
+        mode="w",
+        suffix=".xml",
+        delete=False,
+        encoding="utf-16",
     ) as f:
         f.write(xml)
         xml_path = f.name

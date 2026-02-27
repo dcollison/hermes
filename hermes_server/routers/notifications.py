@@ -1,11 +1,9 @@
-"""
-Hermes - Manual notification endpoints.
-"""
+"""Hermes - Manual notification endpoints."""
 
 # Standard
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Remote
 import httpx
@@ -39,8 +37,7 @@ class ManualNotificationResponse(BaseModel):
 
 @router.post("/send", response_model=ManualNotificationResponse)
 async def send_manual_notification(body: ManualNotificationRequest):
-    """
-    Push a manual notification to all active clients subscribed to 'manual' or 'all'.
+    """Push a manual notification to all active clients subscribed to 'manual' or 'all'.
     Use the notify.py CLI script for a friendlier interface.
     """
     clients = await get_all_clients()
@@ -56,7 +53,8 @@ async def send_manual_notification(body: ManualNotificationRequest):
 
     if not targets:
         return ManualNotificationResponse(
-            dispatched_to=0, message="No clients subscribed to manual notifications"
+            dispatched_to=0,
+            message="No clients subscribed to manual notifications",
         )
 
     notification = {
@@ -79,7 +77,7 @@ async def send_manual_notification(body: ManualNotificationRequest):
             async with httpx.AsyncClient(timeout=5.0) as http:
                 resp = await http.post(client["callback_url"], json=notification)
                 resp.raise_for_status()
-            client["last_seen"] = datetime.now(timezone.utc).isoformat()
+            client["last_seen"] = datetime.now(UTC).isoformat()
             await save_client(client)
         except Exception as e:
             success = False
@@ -93,7 +91,7 @@ async def send_manual_notification(body: ManualNotificationRequest):
                 payload=notification,
                 success=success,
                 error=error_msg,
-            )
+            ),
         )
 
     await asyncio.gather(*[_send_one(c) for c in targets], return_exceptions=True)

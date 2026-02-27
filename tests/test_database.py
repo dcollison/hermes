@@ -1,5 +1,4 @@
-"""
-Tests for hermes_server/database.py
+"""Tests for hermes_server/database.py
 
 Covers:
   - make_client / make_log_entry constructors
@@ -26,8 +25,7 @@ import pytest
 
 @pytest.fixture
 def db(tmp_path):
-    """
-    Patch all path constants in hermes_server.database to a fresh temp dir
+    """Patch all path constants in hermes_server.database to a fresh temp dir
     and wire up a RotatingFileHandler for the notification logger.
     """
     # Remote
@@ -68,7 +66,11 @@ class TestConstructors:
         from hermes_server.database import make_client
 
         c = make_client(
-            "Alice's PC", "http://host/notify", "uid-1", "Alice Smith", ["pr"]
+            "Alice's PC",
+            "http://host/notify",
+            "uid-1",
+            "Alice Smith",
+            ["pr"],
         )
         assert c["name"] == "Alice's PC"
         assert c["ado_user_id"] == "uid-1"

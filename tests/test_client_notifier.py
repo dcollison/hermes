@@ -1,5 +1,4 @@
-"""
-Tests for hermes_client/notifier.py
+"""Tests for hermes_client/notifier.py
 
 Covers:
     - show_notification dispatches to _display correctly
@@ -18,9 +17,8 @@ import os
 from unittest.mock import MagicMock, patch
 
 # Remote
-
 # Remote
-import hermes_client.notifier as notifier
+from hermes_client import notifier
 from hermes_client.notifier import _display
 
 # ---------------------------------------------------------------------------
@@ -218,7 +216,8 @@ class TestShowNotification:
         created_paths = []
 
         original_save = __import__(
-            "hermes_client.notifier", fromlist=["_save_b64_image"]
+            "hermes_client.notifier",
+            fromlist=["_save_b64_image"],
         )._save_b64_image
 
         def tracking_save(b64):

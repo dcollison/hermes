@@ -1,5 +1,4 @@
-"""
-Tests for server routers via the FastAPI test client.
+"""Tests for server routers via the FastAPI test client.
 
 Covers:
     - POST /clients/register (new, re-register idempotent)
@@ -26,8 +25,7 @@ import pytest_asyncio
 
 @pytest_asyncio.fixture
 async def client(tmp_path):
-    """
-    Async httpx client wrapping the FastAPI app, with the database
+    """Async httpx client wrapping the FastAPI app, with the database
     pointed at a fresh temp directory for each test.
     """
     # Standard
@@ -63,7 +61,8 @@ async def client(tmp_path):
         from hermes_server.main import app
 
         async with AsyncClient(
-            transport=ASGITransport(app=app), base_url="http://test"
+            transport=ASGITransport(app=app),
+            base_url="http://test",
         ) as c:
             yield c
 
@@ -246,7 +245,7 @@ class TestManualNotifications:
 
         with patch("httpx.AsyncClient") as mock_http:
             mock_http.return_value.__aenter__ = AsyncMock(
-                return_value=mock_http.return_value
+                return_value=mock_http.return_value,
             )
             mock_http.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_http.return_value.post = AsyncMock(return_value=mock_resp)

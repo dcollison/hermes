@@ -1,5 +1,4 @@
-"""
-Hermes Store - Persistent storage using plain JSON/log files.
+"""Hermes Store - Persistent storage using plain JSON/log files.
 
 Two files are maintained in the data directory:
   clients.json        — registered client records (JSON dict keyed by ID)
@@ -22,7 +21,7 @@ import logging
 import logging.handlers
 import os
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +52,7 @@ _notif_logger: logging.Logger | None = None
 
 
 def _build_notif_logger() -> logging.Logger:
-    """
-    Create (or reuse) a Python logger backed by a RotatingFileHandler.
+    """Create (or reuse) a Python logger backed by a RotatingFileHandler.
     Each record written to it must already be a single-line JSON string.
     """
     nl = logging.getLogger("hermes.notifications")
@@ -92,7 +90,7 @@ async def init_db():
     _notif_logger = _build_notif_logger()
     logger.info(
         f"Notification log: {LOG_FILE} "
-        f"(max {LOG_MAX_BYTES // 1024} KB, {LOG_BACKUP_COUNT} backups)"
+        f"(max {LOG_MAX_BYTES // 1024} KB, {LOG_BACKUP_COUNT} backups)",
     )
 
 
@@ -102,7 +100,7 @@ async def init_db():
 
 
 def _read_json(path: str):
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -164,8 +162,7 @@ async def delete_client(client_id: str) -> bool:
 
 
 async def append_log(entry: dict):
-    """
-    Write one notification entry to the rotating log file.
+    """Write one notification entry to the rotating log file.
     Each line is a compact JSON object (NDJSON format).
     The RotatingFileHandler rolls the file automatically when it hits
     LOG_MAX_BYTES — no manual size checks needed here.
@@ -176,8 +173,7 @@ async def append_log(entry: dict):
 
 
 def _log_files_newest_first() -> list[str]:
-    """
-    Return all log file paths in newest-first order:
+    """Return all log file paths in newest-first order:
       [notifications.log, notifications.log.1, notifications.log.2, ...]
     Only paths that actually exist are included.
     """
@@ -190,8 +186,7 @@ async def get_logs(
     event_type: str | None = None,
     client_id: str | None = None,
 ) -> list:
-    """
-    Read log entries across all rolled files, returning the most recent
+    """Read log entries across all rolled files, returning the most recent
     entries first. Applies optional filters by event_type and client_id.
     """
     entries: list[dict] = []
@@ -199,7 +194,7 @@ async def get_logs(
     async with _lock:
         for path in _log_files_newest_first():
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     # Read lines in reverse so newest come first within each file.
                     lines = f.readlines()
             except OSError:
@@ -232,7 +227,7 @@ async def get_logs(
 
 
 def make_client(name, callback_url, ado_user_id, display_name, subscriptions):
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     return {
         "id": str(uuid.uuid4()),
         "name": name,
@@ -254,5 +249,5 @@ def make_log_entry(client_id, event_type, payload, success, error):
         "payload": payload,
         "success": success,
         "error": error,
-        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "sent_at": datetime.now(UTC).isoformat(),
     }

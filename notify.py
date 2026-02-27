@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-notify.py — Hermes manual notification sender
+"""notify.py — Hermes manual notification sender
 
 Send a toast notification to all Hermes clients from the command line.
 
@@ -29,9 +28,7 @@ except ImportError:
 
 
 def _load_dotenv(path: Path = Path(".env")):
-    """
-    Tiny .env loader — no dependencies.
-    """
+    """Tiny .env loader — no dependencies."""
     if not path.exists():
         return
     with path.open() as f:

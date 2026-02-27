@@ -1,5 +1,4 @@
-"""
-Hermes - Client registration endpoints.
+"""Hermes - Client registration endpoints.
 
 Clients register with their ADO identity so the server can route
 notifications to the right people based on mentions and group membership.
@@ -58,8 +57,7 @@ def _to_response(client: dict) -> ClientResponse:
 
 @router.post("/register", response_model=ClientResponse)
 async def register_client(body: RegisterRequest):
-    """
-    Register (or re-register) a client.
+    """Register (or re-register) a client.
 
     Re-registering with the same callback_url updates the existing record —
     safe to call on every client startup.
@@ -73,7 +71,7 @@ async def register_client(body: RegisterRequest):
                 "display_name": body.display_name,
                 "subscriptions": body.subscriptions,
                 "active": True,
-            }
+            },
         )
         await save_client(existing)
         logger.info(f"Updated client registration: {body.name} ({body.callback_url})")

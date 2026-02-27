@@ -1,5 +1,4 @@
-"""
-Hermes Formatter - Converts Azure DevOps 5.1-preview webhook payloads
+"""Hermes Formatter - Converts Azure DevOps 5.1-preview webhook payloads
 into structured toast notification objects.
 
 Every notification includes a `mentions` dict:
@@ -29,8 +28,7 @@ def _mentions(
     *identity_dicts: dict | None,
     actor_id: str | None = None,
 ) -> dict:
-    """
-    Build a mentions dict from ADO identity dicts.
+    """Build a mentions dict from ADO identity dicts.
     The actor is excluded so they don't get notified of their own actions.
     """
     user_ids: list[str] = []
@@ -53,15 +51,15 @@ def _mentions(
 
 
 async def format_webhook(event_type: str, payload: dict) -> dict | None:
-    """
-    Parse an ADO webhook payload and return a notification dict.
+    """Parse an ADO webhook payload and return a notification dict.
     Returns None if the event type is not handled.
     """
     try:
         resource = payload.get("resource", {})
         resource_containers = payload.get("resourceContainers", {})
         project = resource_containers.get("project", {}).get("name") or resource.get(
-            "teamProject", ""
+            "teamProject",
+            "",
         )
 
         if event_type in (
@@ -72,7 +70,7 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
         ):
             return await _format_pr(event_type, resource, project)
 
-        elif event_type in (
+        if event_type in (
             "workitem.created",
             "workitem.updated",
             "workitem.commented",
@@ -81,7 +79,7 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
         ):
             return await _format_workitem(event_type, resource, project, payload)
 
-        elif event_type in (
+        if event_type in (
             "build.complete",
             "ms.vss-release.release-created-event",
             "ms.vss-release.deployment-completed-event",
@@ -89,9 +87,8 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
         ):
             return await _format_pipeline(event_type, resource, project)
 
-        else:
-            logger.debug(f"Unhandled event type: {event_type}")
-            return None
+        logger.debug(f"Unhandled event type: {event_type}")
+        return None
 
     except Exception as e:
         logger.exception(f"Error formatting webhook {event_type}: {e}")
@@ -191,7 +188,10 @@ async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
 
 
 async def _format_workitem(
-    event_type: str, resource: dict, project: str, payload: dict
+    event_type: str,
+    resource: dict,
+    project: str,
+    payload: dict,
 ) -> dict:
     fields = resource.get("fields", {})
     wi_id = resource.get("id", "")
@@ -297,7 +297,8 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         actor_name = requested_for.get("displayName", "Someone")
         actor_id = requested_for.get("id")
         url = resource.get("_links", {}).get("web", {}).get("href") or resource.get(
-            "url", ""
+            "url",
+            "",
         )
         emoji = {"succeeded": "✅", "failed": "❌", "canceled": "⛔"}.get(result, "🔨")
         heading = f"Build {result.replace('partiallysucceeded', 'partially succeeded').title()}"
@@ -333,7 +334,8 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
             resource.get("release", {}).get("_links", {}).get("web", {}).get("href", "")
         )
         emoji = {"succeeded": "✅", "failed": "❌", "canceled": "⛔"}.get(
-            deploy_status, "🚢"
+            deploy_status,
+            "🚢",
         )
         heading = f"Deployment {deploy_status.title()}"
         body = f"{emoji} {rel_name} → {env_name}: {deploy_status}"

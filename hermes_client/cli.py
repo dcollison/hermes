@@ -1,5 +1,4 @@
-"""
-Hermes Client CLI — `hermes-client` console script.
+"""Hermes Client CLI — `hermes-client` console script.
 
 Subcommands
 -----------
@@ -91,8 +90,7 @@ def register_with_server(settings: ClientSettings, retries: int = 5):
 
 
 def _prompt(label: str, default: str = "", secret: bool = False) -> str:
-    """
-    Prompt the user for input. Shows the default in brackets.
+    """Prompt the user for input. Shows the default in brackets.
     Masks input for secrets (PATs / passwords).
     """
     hint = f" [{default}]" if default else ""
@@ -108,8 +106,7 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
 
 
 def _cmd_configure(args: argparse.Namespace):
-    """
-    Interactive wizard that resolves the user's ADO identity via their PAT
+    """Interactive wizard that resolves the user's ADO identity via their PAT
     and writes a complete .env.hermes-client config file.
     """
     # Local
@@ -158,7 +155,8 @@ def _cmd_configure(args: argparse.Namespace):
         print("  You can enter the values manually below.")
         settings.ADO_USER_ID = _prompt("ADO user ID (GUID)", settings.ADO_USER_ID)
         settings.ADO_DISPLAY_NAME = _prompt(
-            "ADO display name", settings.ADO_DISPLAY_NAME
+            "ADO display name",
+            settings.ADO_DISPLAY_NAME,
         )
     except Exception as e:
         print("✗")
@@ -166,7 +164,8 @@ def _cmd_configure(args: argparse.Namespace):
         print("  You can enter the values manually below.")
         settings.ADO_USER_ID = _prompt("ADO user ID (GUID)", settings.ADO_USER_ID)
         settings.ADO_DISPLAY_NAME = _prompt(
-            "ADO display name", settings.ADO_DISPLAY_NAME
+            "ADO display name",
+            settings.ADO_DISPLAY_NAME,
         )
 
     # --- Callback URL ---
@@ -204,8 +203,7 @@ def _cmd_configure(args: argparse.Namespace):
 
 
 def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
-    """
-    Load settings from the env file, apply any CLI overrides, then
+    """Load settings from the env file, apply any CLI overrides, then
     auto-resolve missing CALLBACK_URL / ADO identity if we have a PAT.
     """
     # Local
@@ -240,14 +238,15 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
             try:
                 logger.info("Resolving ADO identity from PAT…")
                 identity = resolve_identity(
-                    settings.ADO_ORGANIZATION_URL, settings.ADO_PAT
+                    settings.ADO_ORGANIZATION_URL,
+                    settings.ADO_PAT,
                 )
                 settings.ADO_USER_ID = settings.ADO_USER_ID or identity["user_id"]
                 settings.ADO_DISPLAY_NAME = (
                     settings.ADO_DISPLAY_NAME or identity["display_name"]
                 )
                 logger.info(
-                    f"Identity resolved: {settings.ADO_DISPLAY_NAME} ({settings.ADO_USER_ID})"
+                    f"Identity resolved: {settings.ADO_DISPLAY_NAME} ({settings.ADO_USER_ID})",
                 )
             except Exception as e:
                 logger.warning(f"Could not resolve ADO identity: {e}")
@@ -255,7 +254,7 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
     if not settings.ADO_USER_ID or not settings.ADO_DISPLAY_NAME:
         logger.warning(
             "ADO identity is not configured — notifications cannot be routed to you. "
-            "Run `hermes-client configure` to set this up."
+            "Run `hermes-client configure` to set this up.",
         )
 
     return settings
@@ -266,13 +265,13 @@ def _cmd_run(args: argparse.Namespace):
 
     logger.info(
         f"Starting Hermes client '{settings.CLIENT_NAME}' "
-        f"on {settings.LOCAL_HOST}:{settings.LOCAL_PORT}"
+        f"on {settings.LOCAL_HOST}:{settings.LOCAL_PORT}",
     )
     logger.info(f"Server       : {settings.SERVER_URL}")
     logger.info(f"Callback URL : {settings.CALLBACK_URL}")
     logger.info(
         f"Identity     : {settings.ADO_DISPLAY_NAME or '(not set)'} "
-        f"({settings.ADO_USER_ID or 'none'})"
+        f"({settings.ADO_USER_ID or 'none'})",
     )
 
     def _register():
@@ -314,7 +313,9 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--version", action="version", version=f"hermes-client {__version__}"
+        "--version",
+        action="version",
+        version=f"hermes-client {__version__}",
     )
 
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
@@ -334,10 +335,14 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--port", metavar="PORT", type=int, help="Local listen port")
     run_p.add_argument("--callback-url", metavar="URL", help="Override callback URL")
     run_p.add_argument(
-        "--ado-user-id", metavar="GUID", help="Override ADO identity GUID"
+        "--ado-user-id",
+        metavar="GUID",
+        help="Override ADO identity GUID",
     )
     run_p.add_argument(
-        "--ado-display-name", metavar="NAME", help="Override ADO display name"
+        "--ado-display-name",
+        metavar="NAME",
+        help="Override ADO display name",
     )
 
     # startup

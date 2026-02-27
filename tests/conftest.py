@@ -1,6 +1,4 @@
-"""
-Shared pytest fixtures for Hermes tests.
-"""
+"""Shared pytest fixtures for Hermes tests."""
 
 # Standard
 from pathlib import Path
@@ -16,8 +14,7 @@ import pytest
 
 @pytest.fixture
 def tmp_data_dir(tmp_path):
-    """
-    Point the database module at a fresh temp directory for each test.
+    """Point the database module at a fresh temp directory for each test.
     Resets module-level globals that cache file paths.
     """
     # Remote
@@ -115,7 +112,8 @@ def client_record(alice):
 def no_avatar():
     """Patch get_user_avatar_b64 to return None — no network needed."""
     with patch(
-        "server.ado_client.get_user_avatar_b64", new=AsyncMock(return_value=None)
+        "server.ado_client.get_user_avatar_b64",
+        new=AsyncMock(return_value=None),
     ):
         yield
 
@@ -127,8 +125,7 @@ def no_avatar():
 
 @pytest.fixture
 def api_client(tmp_data_dir):
-    """
-    httpx AsyncClient wrapping the FastAPI app with the database
+    """Httpx AsyncClient wrapping the FastAPI app with the database
     already pointed at the temp directory.
     """
     # Remote

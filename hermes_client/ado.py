@@ -1,5 +1,4 @@
-"""
-Hermes Client — Azure DevOps identity resolution.
+"""Hermes Client — Azure DevOps identity resolution.
 
 Synchronous (blocking) helpers used at startup/configure time — before the
 asyncio event loop is running. Not used during normal notification receive.
@@ -27,8 +26,7 @@ def _auth_headers(pat: str) -> dict:
 
 
 def resolve_identity(ado_url: str, pat: str) -> dict:
-    """
-    Call /_apis/connectionData with the given PAT and return a dict with:
+    """Call /_apis/connectionData with the given PAT and return a dict with:
       user_id      — ADO identity GUID
       display_name — ADO display name
 
@@ -57,15 +55,14 @@ def resolve_identity(ado_url: str, pat: str) -> dict:
 
     if not user_id:
         raise ValueError(
-            "ADO returned no user ID — check the organisation URL and PAT."
+            "ADO returned no user ID — check the organisation URL and PAT.",
         )
 
     return {"user_id": user_id, "display_name": display_name}
 
 
 def resolve_callback_url(port: int) -> str:
-    """
-    Return the best available LAN IP for this machine formatted as a callback URL.
+    """Return the best available LAN IP for this machine formatted as a callback URL.
 
     Uses a UDP connect trick to find the IP the OS would use when talking to
     an external host — this avoids returning 127.0.0.1 or the wrong interface

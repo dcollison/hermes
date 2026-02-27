@@ -1,5 +1,4 @@
-"""
-Hermes Dispatcher - Sends formatted notifications to registered clients.
+"""Hermes Dispatcher - Sends formatted notifications to registered clients.
 
 Routing is identity-based: a client receives a notification when:
   1. The event type is in their subscription list, AND
@@ -13,7 +12,7 @@ Routing is identity-based: a client receives a notification when:
 # Standard
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 # Remote
 import httpx
@@ -26,8 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _client_is_relevant(client: dict, notification: dict) -> bool:
-    """
-    Return True if this client should receive the notification.
+    """Return True if this client should receive the notification.
     Checks event type subscription, then identity/group relevance.
     """
     # --- subscription check ---
@@ -96,7 +94,7 @@ async def _send(client: dict, notification: dict):
             resp = await http.post(client["callback_url"], json=notification)
             resp.raise_for_status()
         logger.info(f"Notified client '{client['name']}' ({client['callback_url']})")
-        client["last_seen"] = datetime.now(timezone.utc).isoformat()
+        client["last_seen"] = datetime.now(UTC).isoformat()
         await save_client(client)
     except Exception as e:
         success = False
@@ -110,5 +108,5 @@ async def _send(client: dict, notification: dict):
             payload=notification,
             success=success,
             error=error_msg,
-        )
+        ),
     )

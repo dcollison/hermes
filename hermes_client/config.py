@@ -10,8 +10,7 @@ from pydantic_settings import BaseSettings
 
 
 def _find_env_file() -> str | None:
-    """
-    Search for .env.hermes-client in order:
+    """Search for .env.hermes-client in order:
       1. Current working directory
       2. User home directory
       3. %APPDATA%/Hermes  (Windows)
@@ -32,8 +31,7 @@ def _find_env_file() -> str | None:
 
 
 def default_env_file_path() -> Path:
-    """
-    Return the preferred path for writing a new .env.hermes-client file.
+    """Return the preferred path for writing a new .env.hermes-client file.
     Chooses %APPDATA%/Hermes/ on Windows, home directory otherwise.
     """
     appdata = os.environ.get("APPDATA")
@@ -74,12 +72,11 @@ class ClientSettings(BaseSettings):
             self.SERVER_URL
             and self.CALLBACK_URL
             and self.ADO_USER_ID
-            and self.ADO_DISPLAY_NAME
+            and self.ADO_DISPLAY_NAME,
         )
 
     def write_env_file(self, path: Path | None = None) -> Path:
-        """
-        Write current settings to an .env.hermes-client file.
+        """Write current settings to an .env.hermes-client file.
         Creates the file (and parent directories) if it doesn't exist.
         """
         target = path or default_env_file_path()

@@ -1,5 +1,4 @@
-"""
-Tests for hermes_client/ado.py
+"""Tests for hermes_client/ado.py
 
 Covers:
     - _auth_headers: correct Basic auth encoding
@@ -50,7 +49,9 @@ class TestResolveIdentity:
             import httpx
 
             mock.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "error", request=MagicMock(), response=mock
+                "error",
+                request=MagicMock(),
+                response=mock,
             )
         else:
             mock.raise_for_status = MagicMock()
@@ -65,8 +66,8 @@ class TestResolveIdentity:
                 "authenticatedUser": {
                     "id": "abc-123",
                     "providerDisplayName": "Alice Smith",
-                }
-            }
+                },
+            },
         )
 
         with patch("httpx.get", return_value=resp):
@@ -84,8 +85,8 @@ class TestResolveIdentity:
                 "authenticatedUser": {
                     "id": "abc-123",
                     "customDisplayName": "Alice (Custom)",
-                }
-            }
+                },
+            },
         )
         with patch("httpx.get", return_value=resp):
             result = resolve_identity("http://ado/DefaultCollection", "my-pat")
@@ -97,8 +98,8 @@ class TestResolveIdentity:
 
         resp = self._mock_response(
             json_body={
-                "authenticatedUser": {"id": "abc-123", "providerDisplayName": "Alice"}
-            }
+                "authenticatedUser": {"id": "abc-123", "providerDisplayName": "Alice"},
+            },
         )
         with patch("httpx.get", return_value=resp) as mock_get:
             resolve_identity("http://ado/DefaultCollection/", "my-pat")
@@ -132,8 +133,8 @@ class TestResolveIdentity:
 
         resp = self._mock_response(
             json_body={
-                "authenticatedUser": {"id": "u1", "providerDisplayName": "Alice"}
-            }
+                "authenticatedUser": {"id": "u1", "providerDisplayName": "Alice"},
+            },
         )
         with patch("httpx.get", return_value=resp) as mock_get:
             resolve_identity("http://ado/DefaultCollection", "my-pat")

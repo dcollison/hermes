@@ -1,5 +1,4 @@
-"""
-Azure DevOps API helpers.
+"""Azure DevOps API helpers.
 Targets ADO Server with API version 1.0.
 
 Caches avatar images and group memberships in-process so repeated webhook
@@ -34,8 +33,7 @@ def _auth_headers() -> dict:
 
 
 async def get_user_avatar_b64(identity_id: str | None) -> str | None:
-    """
-    Fetch a user's avatar from ADO and return it as a base64 data URI.
+    """Fetch a user's avatar from ADO and return it as a base64 data URI.
     Results are cached for the lifetime of the process.
     Falls back gracefully if unavailable.
     """
@@ -64,8 +62,7 @@ async def get_user_avatar_b64(identity_id: str | None) -> str | None:
 
 
 async def get_user_groups(identity_id: str) -> list[str]:
-    """
-    Return the list of ADO group display names that this user belongs to.
+    """Return the list of ADO group display names that this user belongs to.
     Results are cached per user for the lifetime of the process.
 
     Uses the Identities API to expand group memberships:
@@ -103,12 +100,15 @@ async def get_user_groups(identity_id: str) -> list[str]:
             }
             async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
                 resp = await client.get(
-                    resolve_url, headers=_auth_headers(), params=resolve_params
+                    resolve_url,
+                    headers=_auth_headers(),
+                    params=resolve_params,
                 )
                 if resp.status_code == 200:
                     for item in resp.json().get("value", []):
                         name = item.get("providerDisplayName") or item.get(
-                            "customDisplayName", ""
+                            "customDisplayName",
+                            "",
                         )
                         if name:
                             groups.append(name)

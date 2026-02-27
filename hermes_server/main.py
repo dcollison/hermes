@@ -1,6 +1,4 @@
-"""
-Hermes Server - Azure DevOps Webhook Receiver & Notification Dispatcher
-"""
+"""Hermes Server - Azure DevOps Webhook Receiver & Notification Dispatcher"""
 
 # Standard
 from contextlib import asynccontextmanager
@@ -32,7 +30,9 @@ app = FastAPI(
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 app.include_router(clients.router, prefix="/clients", tags=["clients"])
 app.include_router(
-    notifications.router, prefix="/notifications", tags=["notifications"]
+    notifications.router,
+    prefix="/notifications",
+    tags=["notifications"],
 )
 
 

@@ -1,5 +1,4 @@
-"""
-Tests for hermes_server/dispatcher.py
+"""Tests for hermes_server/dispatcher.py
 
 Covers:
   - _client_is_relevant: subscription filtering
@@ -72,7 +71,8 @@ class TestClientIsRelevant:
     @pytest.fixture(autouse=True)
     def patch_groups(self):
         with patch(
-            "hermes_server.dispatcher.get_user_groups", new=AsyncMock(return_value=[])
+            "hermes_server.dispatcher.get_user_groups",
+            new=AsyncMock(return_value=[]),
         ):
             yield
 
@@ -148,7 +148,9 @@ class TestClientIsRelevant:
             await self._check(
                 _make_client(subscriptions=["pr"]),
                 _make_notification(
-                    event_type="pr", mentioned_user_ids=[], mentioned_names=[]
+                    event_type="pr",
+                    mentioned_user_ids=[],
+                    mentioned_names=[],
                 ),
             )
             is True
@@ -221,7 +223,8 @@ class TestClientIsRelevant:
             await self._check(
                 _make_client(ado_user_id="user-1"),
                 _make_notification(
-                    mentioned_user_ids=["user-1"], mentioned_names=["Some Group"]
+                    mentioned_user_ids=["user-1"],
+                    mentioned_names=["Some Group"],
                 ),
             )
         mock_groups.assert_not_called()
@@ -245,7 +248,8 @@ class TestDispatch:
     @pytest.fixture(autouse=True)
     def patch_groups(self):
         with patch(
-            "hermes_server.dispatcher.get_user_groups", new=AsyncMock(return_value=[])
+            "hermes_server.dispatcher.get_user_groups",
+            new=AsyncMock(return_value=[]),
         ):
             yield
 
