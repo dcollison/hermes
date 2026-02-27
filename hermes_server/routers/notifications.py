@@ -2,15 +2,25 @@
 Hermes - Manual notification endpoints.
 """
 
+# Standard
 import asyncio
-import httpx
 import logging
+from datetime import datetime, timezone
+from typing import List, Optional
+
+# Remote
+import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import Optional, List
-from datetime import datetime, timezone
 
-from ..database import get_all_clients, get_logs, append_log, save_client, make_log_entry
+# Local
+from ..database import (
+    append_log,
+    get_all_clients,
+    get_logs,
+    make_log_entry,
+    save_client,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -36,13 +46,19 @@ async def send_manual_notification(body: ManualNotificationRequest):
     """
     clients = await get_all_clients()
     targets = [
-        c for c in clients
+        c
+        for c in clients
         if c.get("active")
-        and ("manual" in c.get("subscriptions", []) or "all" in c.get("subscriptions", []))
+        and (
+            "manual" in c.get("subscriptions", [])
+            or "all" in c.get("subscriptions", [])
+        )
     ]
 
     if not targets:
-        return ManualNotificationResponse(dispatched_to=0, message="No clients subscribed to manual notifications")
+        return ManualNotificationResponse(
+            dispatched_to=0, message="No clients subscribed to manual notifications"
+        )
 
     notification = {
         "event_type": "manual",
@@ -71,13 +87,15 @@ async def send_manual_notification(body: ManualNotificationRequest):
             error_msg = str(e)
             logger.warning(f"Failed to notify '{client['name']}': {e}")
 
-        await append_log(make_log_entry(
-            client_id=client["id"],
-            event_type="manual",
-            payload=notification,
-            success=success,
-            error=error_msg,
-        ))
+        await append_log(
+            make_log_entry(
+                client_id=client["id"],
+                event_type="manual",
+                payload=notification,
+                success=success,
+                error=error_msg,
+            )
+        )
 
     await asyncio.gather(*[_send_one(c) for c in targets], return_exceptions=True)
 

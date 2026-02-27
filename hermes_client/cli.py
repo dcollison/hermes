@@ -10,6 +10,7 @@ Subcommands
   hermes-client startup status       Check whether the task is registered
 """
 
+# Standard
 import argparse
 import logging
 import sys
@@ -18,13 +19,15 @@ import time
 from pathlib import Path
 from typing import Optional
 
+# Remote
 import httpx
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
+# Local
 from . import __version__
-from .config import ClientSettings, default_env_file_path, _find_env_file
+from .config import ClientSettings, _find_env_file, default_env_file_path
 from .notifier import show_notification
 
 logging.basicConfig(
@@ -58,6 +61,7 @@ async def health():
 # Registration
 # ---------------------------------------------------------------------------
 
+
 def register_with_server(settings: ClientSettings, retries: int = 5):
     payload = {
         "name": settings.CLIENT_NAME,
@@ -88,6 +92,7 @@ def register_with_server(settings: ClientSettings, retries: int = 5):
 # `configure` command
 # ---------------------------------------------------------------------------
 
+
 def _prompt(label: str, default: str = "", secret: bool = False) -> str:
     """
     Prompt the user for input. Shows the default in brackets.
@@ -96,7 +101,9 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
     hint = f" [{default}]" if default else ""
     prompt_str = f"  {label}{hint}: "
     if secret:
+        # Standard
         import getpass
+
         value = getpass.getpass(prompt_str)
     else:
         value = input(prompt_str).strip()
@@ -108,7 +115,8 @@ def _cmd_configure(args: argparse.Namespace):
     Interactive wizard that resolves the user's ADO identity via their PAT
     and writes a complete .env.hermes-client config file.
     """
-    from .ado import resolve_identity, resolve_callback_url
+    # Local
+    from .ado import resolve_callback_url, resolve_identity
 
     # Load whatever exists already so we can offer it as defaults
     settings = ClientSettings()
@@ -152,13 +160,17 @@ def _cmd_configure(args: argparse.Namespace):
             print("  The PAT may be invalid or expired, or the URL is wrong.")
         print("  You can enter the values manually below.")
         settings.ADO_USER_ID = _prompt("ADO user ID (GUID)", settings.ADO_USER_ID)
-        settings.ADO_DISPLAY_NAME = _prompt("ADO display name", settings.ADO_DISPLAY_NAME)
+        settings.ADO_DISPLAY_NAME = _prompt(
+            "ADO display name", settings.ADO_DISPLAY_NAME
+        )
     except Exception as e:
         print("✗")
         print(f"\n  ERROR: {e}")
         print("  You can enter the values manually below.")
         settings.ADO_USER_ID = _prompt("ADO user ID (GUID)", settings.ADO_USER_ID)
-        settings.ADO_DISPLAY_NAME = _prompt("ADO display name", settings.ADO_DISPLAY_NAME)
+        settings.ADO_DISPLAY_NAME = _prompt(
+            "ADO display name", settings.ADO_DISPLAY_NAME
+        )
 
     # --- Callback URL ---
     print()
@@ -193,12 +205,14 @@ def _cmd_configure(args: argparse.Namespace):
 # `run` command
 # ---------------------------------------------------------------------------
 
+
 def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
     """
     Load settings from the env file, apply any CLI overrides, then
     auto-resolve missing CALLBACK_URL / ADO identity if we have a PAT.
     """
-    from .ado import resolve_identity, resolve_callback_url
+    # Local
+    from .ado import resolve_callback_url, resolve_identity
 
     settings = ClientSettings()
 
@@ -228,10 +242,16 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
         if not settings.ADO_USER_ID or not settings.ADO_DISPLAY_NAME:
             try:
                 logger.info("Resolving ADO identity from PAT…")
-                identity = resolve_identity(settings.ADO_ORGANIZATION_URL, settings.ADO_PAT)
+                identity = resolve_identity(
+                    settings.ADO_ORGANIZATION_URL, settings.ADO_PAT
+                )
                 settings.ADO_USER_ID = settings.ADO_USER_ID or identity["user_id"]
-                settings.ADO_DISPLAY_NAME = settings.ADO_DISPLAY_NAME or identity["display_name"]
-                logger.info(f"Identity resolved: {settings.ADO_DISPLAY_NAME} ({settings.ADO_USER_ID})")
+                settings.ADO_DISPLAY_NAME = (
+                    settings.ADO_DISPLAY_NAME or identity["display_name"]
+                )
+                logger.info(
+                    f"Identity resolved: {settings.ADO_DISPLAY_NAME} ({settings.ADO_USER_ID})"
+                )
             except Exception as e:
                 logger.warning(f"Could not resolve ADO identity: {e}")
 
@@ -275,8 +295,11 @@ def _cmd_run(args: argparse.Namespace):
 # `startup` command
 # ---------------------------------------------------------------------------
 
+
 def _cmd_startup(args: argparse.Namespace):
+    # Local
     from . import startup
+
     {"install": startup.install, "remove": startup.remove, "status": startup.status}[
         args.startup_command
     ]()
@@ -286,13 +309,16 @@ def _cmd_startup(args: argparse.Namespace):
 # Argument parser
 # ---------------------------------------------------------------------------
 
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hermes-client",
         description="Hermes — Azure DevOps notification client",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--version", action="version", version=f"hermes-client {__version__}")
+    parser.add_argument(
+        "--version", action="version", version=f"hermes-client {__version__}"
+    )
 
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")
     sub.required = True
@@ -310,8 +336,12 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--host", metavar="HOST", help="Local listen host")
     run_p.add_argument("--port", metavar="PORT", type=int, help="Local listen port")
     run_p.add_argument("--callback-url", metavar="URL", help="Override callback URL")
-    run_p.add_argument("--ado-user-id", metavar="GUID", help="Override ADO identity GUID")
-    run_p.add_argument("--ado-display-name", metavar="NAME", help="Override ADO display name")
+    run_p.add_argument(
+        "--ado-user-id", metavar="GUID", help="Override ADO identity GUID"
+    )
+    run_p.add_argument(
+        "--ado-display-name", metavar="NAME", help="Override ADO display name"
+    )
 
     # startup
     startup_p = sub.add_parser("startup", help="Manage Windows startup integration")

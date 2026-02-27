@@ -17,11 +17,12 @@ Commands
   hermes-client startup status    — show whether the task exists and is enabled
 """
 
+# Standard
 import os
 import subprocess
 import sys
-import textwrap
 import tempfile
+import textwrap
 from pathlib import Path
 
 TASK_NAME = "HermesNotificationClient"
@@ -75,8 +76,7 @@ def _build_task_xml(pythonw: str, script: str) -> str:
     The script .exe runs as its own process, so no extra Arguments are needed
     for uv — the venv is already baked into the .exe wrapper by uv.
     """
-    username = f"{os.environ.get('USERDOMAIN', '.')}\\" \
-               f"{os.environ.get('USERNAME', '')}"
+    username = f"{os.environ.get('USERDOMAIN', '.')}\\{os.environ.get('USERNAME', '')}"
 
     return textwrap.dedent(f"""\
         <?xml version="1.0" encoding="UTF-16"?>

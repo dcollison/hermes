@@ -15,7 +15,9 @@ from unittest.mock import AsyncMock, patch
 
 @pytest.fixture(autouse=True)
 def no_avatar():
-    with patch("hermes_server.ado_client.get_user_avatar_b64", new=AsyncMock(return_value=None)):
+    with patch(
+        "hermes_server.ado_client.get_user_avatar_b64", new=AsyncMock(return_value=None)
+    ):
         yield
 
 
@@ -23,9 +25,11 @@ def no_avatar():
 # _mentions  (synchronous — no event loop needed)
 # ---------------------------------------------------------------------------
 
+
 class TestMentions:
     def setup_method(self):
         from hermes_server.formatter import _mentions
+
         self._mentions = _mentions
 
     def test_empty(self):
@@ -66,13 +70,16 @@ class TestMentions:
         assert result["names"] == []
 
     def test_uses_uniqueName_as_fallback_id(self):
-        result = self._mentions({"uniqueName": "alice@corp.com", "displayName": "Alice"})
+        result = self._mentions(
+            {"uniqueName": "alice@corp.com", "displayName": "Alice"}
+        )
         assert result["user_ids"] == ["alice@corp.com"]
 
 
 # ---------------------------------------------------------------------------
 # PR events
 # ---------------------------------------------------------------------------
+
 
 class TestFormatPR:
     def _payload(self, event_type, resource_overrides=None):
@@ -97,6 +104,7 @@ class TestFormatPR:
 
     async def _format(self, event_type, resource_overrides=None):
         from hermes_server.formatter import format_webhook
+
         payload = self._payload(event_type, resource_overrides)
         return await format_webhook(event_type, payload)
 
@@ -115,16 +123,24 @@ class TestFormatPR:
         assert "reviewer-id" in notif["mentions"]["user_ids"]
 
     async def test_pr_merged_mentions_author_and_reviewers(self):
-        notif = await self._format("git.pullrequest.merged", {
-            "closedBy": {"id": "reviewer-id", "displayName": "Bob"},
-        })
+        # Carol merges the PR — Alice (author) and Bob (reviewer) should both be notified
+        notif = await self._format(
+            "git.pullrequest.merged",
+            {
+                "closedBy": {"id": "merger-id", "displayName": "Carol"},
+            },
+        )
         assert "author-id" in notif["mentions"]["user_ids"]
         assert "reviewer-id" in notif["mentions"]["user_ids"]
+        assert "merger-id" not in notif["mentions"]["user_ids"]
 
     async def test_pr_merged_author_is_merger_still_notified(self):
-        notif = await self._format("git.pullrequest.merged", {
-            "closedBy": {"id": "author-id", "displayName": "Alice"},
-        })
+        notif = await self._format(
+            "git.pullrequest.merged",
+            {
+                "closedBy": {"id": "author-id", "displayName": "Alice"},
+            },
+        )
         assert "author-id" in notif["mentions"]["user_ids"]
 
     async def test_pr_merged_has_success_status_image(self):
@@ -154,17 +170,22 @@ class TestFormatPR:
             },
         }
         from hermes_server.formatter import format_webhook
+
         event_type = "ms.vss-code.git-pullrequest-comment-event"
-        notif = await format_webhook(event_type, {
-            "eventType": event_type,
-            "resource": resource,
-            "resourceContainers": {"project": {"name": "MyProject"}},
-        })
+        notif = await format_webhook(
+            event_type,
+            {
+                "eventType": event_type,
+                "resource": resource,
+                "resourceContainers": {"project": {"name": "MyProject"}},
+            },
+        )
         assert "author-id" in notif["mentions"]["user_ids"]
         assert "reviewer-id" not in notif["mentions"]["user_ids"]
 
     async def test_unknown_event_returns_none(self):
         from hermes_server.formatter import format_webhook
+
         result = await format_webhook("unknown.event.type", {})
         assert result is None
 
@@ -174,8 +195,19 @@ class TestFormatPR:
 
     async def test_notification_has_all_required_fields(self):
         notif = await self._format("git.pullrequest.created")
-        for field in ("event_type", "heading", "body", "url", "project",
-                      "avatar_b64", "status_image", "actor", "actor_id", "mentions", "meta"):
+        for field in (
+            "event_type",
+            "heading",
+            "body",
+            "url",
+            "project",
+            "avatar_b64",
+            "status_image",
+            "actor",
+            "actor_id",
+            "mentions",
+            "meta",
+        ):
             assert field in notif, f"Missing field: {field}"
 
 
@@ -183,9 +215,11 @@ class TestFormatPR:
 # Work item events
 # ---------------------------------------------------------------------------
 
+
 class TestFormatWorkItem:
     async def _format(self, event_type, fields_override=None):
         from hermes_server.formatter import format_webhook
+
         fields = {
             "System.WorkItemType": "Task",
             "System.Title": "Fix the bug",
@@ -220,6 +254,7 @@ class TestFormatWorkItem:
 
     async def test_workitem_url_converted_from_api_to_web(self):
         from hermes_server.formatter import format_webhook
+
         payload = {
             "resource": {
                 "id": 99,
@@ -243,6 +278,7 @@ class TestFormatWorkItem:
 # Pipeline / build events
 # ---------------------------------------------------------------------------
 
+
 class TestFormatPipeline:
     def _build_payload(self, result, requested_for=None):
         return {
@@ -251,7 +287,8 @@ class TestFormatPipeline:
                 "buildNumber": "20260101.1",
                 "result": result,
                 "definition": {"name": "CI Pipeline"},
-                "requestedFor": requested_for or {"id": "user-id", "displayName": "Alice"},
+                "requestedFor": requested_for
+                or {"id": "user-id", "displayName": "Alice"},
                 "_links": {"web": {"href": "http://ado/build/1"}},
             },
             "resourceContainers": {"project": {"name": "MyProject"}},
@@ -259,51 +296,73 @@ class TestFormatPipeline:
 
     async def _format_build(self, result, requested_for=None):
         from hermes_server.formatter import format_webhook
-        return await format_webhook("build.complete", self._build_payload(result, requested_for))
 
-    @pytest.mark.parametrize("result,expected_image", [
-        ("succeeded",          "success"),
-        ("failed",             "failure"),
-        ("canceled",           "cancelled"),
-        ("partiallysucceeded", "failure"),
-    ])
+        return await format_webhook(
+            "build.complete", self._build_payload(result, requested_for)
+        )
+
+    @pytest.mark.parametrize(
+        "result,expected_image",
+        [
+            ("succeeded", "success"),
+            ("failed", "failure"),
+            ("canceled", "cancelled"),
+            ("partiallysucceeded", "failure"),
+        ],
+    )
     async def test_build_status_image(self, result, expected_image):
         notif = await self._format_build(result)
         assert notif["status_image"] == expected_image
 
     async def test_build_notifies_triggerer(self):
-        notif = await self._format_build("succeeded", {"id": "user-id", "displayName": "Alice"})
+        notif = await self._format_build(
+            "succeeded", {"id": "user-id", "displayName": "Alice"}
+        )
         assert "user-id" in notif["mentions"]["user_ids"]
 
     async def test_deployment_succeeded_status_image(self):
         from hermes_server.formatter import format_webhook
+
         payload = {
             "resource": {
                 "environment": {"name": "Production", "status": "succeeded"},
-                "release": {"name": "Release-1", "_links": {"web": {"href": "http://ado/release/1"}}},
-                "deployment": {"requestedFor": {"id": "deployer-id", "displayName": "Bob"}},
+                "release": {
+                    "name": "Release-1",
+                    "_links": {"web": {"href": "http://ado/release/1"}},
+                },
+                "deployment": {
+                    "requestedFor": {"id": "deployer-id", "displayName": "Bob"}
+                },
             },
             "resourceContainers": {"project": {"name": "MyProject"}},
         }
-        notif = await format_webhook("ms.vss-release.deployment-completed-event", payload)
+        notif = await format_webhook(
+            "ms.vss-release.deployment-completed-event", payload
+        )
         assert notif["status_image"] == "success"
         assert "deployer-id" in notif["mentions"]["user_ids"]
 
     async def test_deployment_failed_status_image(self):
         from hermes_server.formatter import format_webhook
+
         payload = {
             "resource": {
                 "environment": {"name": "Production", "status": "failed"},
                 "release": {"name": "Release-1", "_links": {"web": {"href": ""}}},
-                "deployment": {"requestedFor": {"id": "deployer-id", "displayName": "Bob"}},
+                "deployment": {
+                    "requestedFor": {"id": "deployer-id", "displayName": "Bob"}
+                },
             },
             "resourceContainers": {},
         }
-        notif = await format_webhook("ms.vss-release.deployment-completed-event", payload)
+        notif = await format_webhook(
+            "ms.vss-release.deployment-completed-event", payload
+        )
         assert notif["status_image"] == "failure"
 
     async def test_release_abandoned_status_image(self):
         from hermes_server.formatter import format_webhook
+
         payload = {
             "resource": {
                 "name": "Release-2",
@@ -317,6 +376,7 @@ class TestFormatPipeline:
 
     async def test_release_created_no_status_image(self):
         from hermes_server.formatter import format_webhook
+
         payload = {
             "resource": {
                 "name": "Release-1",

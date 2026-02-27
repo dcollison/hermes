@@ -13,12 +13,14 @@ The server URL can also be set via the HERMES_SERVER_URL environment variable
 or in a local .env file.
 """
 
+# Standard
 import argparse
 import base64
 import os
 import sys
 
 try:
+    # Remote
     import httpx
 except ImportError:
     print("ERROR: httpx is required.  Run: pip install httpx")
@@ -27,6 +29,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 # Config — read from env / .env file if present
 # ---------------------------------------------------------------------------
+
 
 def _load_dotenv(path: str = ".env"):
     """Tiny .env loader — no dependencies."""
@@ -50,6 +53,7 @@ DEFAULT_SERVER = os.environ.get("HERMES_SERVER_URL", "http://localhost:8000")
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _encode_image(path: str) -> str:
     """Read an image file and return a base64 data URI."""
     ext = os.path.splitext(path)[1].lower().lstrip(".")
@@ -71,6 +75,7 @@ def _encode_image(path: str) -> str:
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main():
     parser = argparse.ArgumentParser(
         description="Send a manual notification to all Hermes clients.",
@@ -86,18 +91,21 @@ Examples:
     parser.add_argument("title", help="Notification title")
     parser.add_argument("message", help="Notification body text")
     parser.add_argument(
-        "--image", "-i",
+        "--image",
+        "-i",
         metavar="FILE",
         help="Optional image file to include (PNG, JPG, etc.)",
     )
     parser.add_argument(
-        "--server", "-s",
+        "--server",
+        "-s",
         default=DEFAULT_SERVER,
         metavar="URL",
         help=f"Hermes server URL (default: {DEFAULT_SERVER})",
     )
     parser.add_argument(
-        "--url", "-u",
+        "--url",
+        "-u",
         default=None,
         metavar="URL",
         help="Optional click-through URL attached to the notification",
@@ -120,7 +128,10 @@ Examples:
             payload["avatar_b64"] = _encode_image(args.image)
             print(f"Image attached: {args.image}")
         except Exception as e:
-            print(f"WARNING: Could not read image ({e}) — sending without it.", file=sys.stderr)
+            print(
+                f"WARNING: Could not read image ({e}) — sending without it.",
+                file=sys.stderr,
+            )
 
     # Send
     endpoint = f"{args.server.rstrip('/')}/notifications/send"
@@ -132,10 +143,16 @@ Examples:
         result = resp.json()
         print(f"✓ {result.get('message', 'Sent')}")
     except httpx.HTTPStatusError as e:
-        print(f"ERROR: Server returned {e.response.status_code}: {e.response.text}", file=sys.stderr)
+        print(
+            f"ERROR: Server returned {e.response.status_code}: {e.response.text}",
+            file=sys.stderr,
+        )
         sys.exit(1)
     except Exception as e:
-        print(f"ERROR: Could not reach Hermes server at {args.server}: {e}", file=sys.stderr)
+        print(
+            f"ERROR: Could not reach Hermes server at {args.server}: {e}",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
 

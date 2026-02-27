@@ -16,9 +16,11 @@ The actor is excluded from mentions for all events EXCEPT PR merged, where the
 PR author is always included so they are notified when their own PR completes.
 """
 
-from typing import Optional
+# Standard
 import logging
+from typing import Optional
 
+# Local
 from .ado_client import get_user_avatar_b64
 
 logger = logging.getLogger(__name__)
@@ -59,9 +61,8 @@ async def format_webhook(event_type: str, payload: dict) -> Optional[dict]:
     try:
         resource = payload.get("resource", {})
         resource_containers = payload.get("resourceContainers", {})
-        project = (
-            resource_containers.get("project", {}).get("name")
-            or resource.get("teamProject", "")
+        project = resource_containers.get("project", {}).get("name") or resource.get(
+            "teamProject", ""
         )
 
         if event_type in (
@@ -102,8 +103,13 @@ async def format_webhook(event_type: str, payload: dict) -> Optional[dict]:
 # Pull Request
 # ---------------------------------------------------------------------------
 
+
 async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
-    pr = resource if "pullRequestId" in resource else resource.get("pullRequest", resource)
+    pr = (
+        resource
+        if "pullRequestId" in resource
+        else resource.get("pullRequest", resource)
+    )
 
     pr_id = pr.get("pullRequestId", "")
     title = pr.get("title", "Pull Request")
@@ -183,6 +189,7 @@ async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
 # ---------------------------------------------------------------------------
 # Work Items
 # ---------------------------------------------------------------------------
+
 
 async def _format_workitem(
     event_type: str, resource: dict, project: str, payload: dict
@@ -290,7 +297,9 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         requested_for = resource.get("requestedFor", {})
         actor_name = requested_for.get("displayName", "Someone")
         actor_id = requested_for.get("id")
-        url = resource.get("_links", {}).get("web", {}).get("href") or resource.get("url", "")
+        url = resource.get("_links", {}).get("web", {}).get("href") or resource.get(
+            "url", ""
+        )
         emoji = {"succeeded": "✅", "failed": "❌", "canceled": "⛔"}.get(result, "🔨")
         heading = f"Build {result.replace('partiallysucceeded', 'partially succeeded').title()}"
         body = f"{emoji} {definition} #{build_num} {result}\nTriggered by: {actor_name}"
@@ -321,8 +330,12 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         requested_for = deployment.get("requestedFor", {})
         actor_name = requested_for.get("displayName", "Someone")
         actor_id = requested_for.get("id")
-        url = resource.get("release", {}).get("_links", {}).get("web", {}).get("href", "")
-        emoji = {"succeeded": "✅", "failed": "❌", "canceled": "⛔"}.get(deploy_status, "🚢")
+        url = (
+            resource.get("release", {}).get("_links", {}).get("web", {}).get("href", "")
+        )
+        emoji = {"succeeded": "✅", "failed": "❌", "canceled": "⛔"}.get(
+            deploy_status, "🚢"
+        )
         heading = f"Deployment {deploy_status.title()}"
         body = f"{emoji} {rel_name} → {env_name}: {deploy_status}"
         status_image = _DEPLOY_STATUS_IMAGE.get(deploy_status)

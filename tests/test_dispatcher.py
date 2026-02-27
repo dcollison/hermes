@@ -12,8 +12,11 @@ Covers:
   - _send: logs success and failure correctly
 """
 
-import pytest
+# Standard
 from unittest.mock import AsyncMock, MagicMock, patch
+
+# Remote
+import pytest
 
 
 def _make_client(
@@ -64,78 +67,112 @@ def _make_notification(
 # _client_is_relevant
 # ---------------------------------------------------------------------------
 
+
 class TestClientIsRelevant:
     @pytest.fixture(autouse=True)
     def patch_groups(self):
-        with patch("hermes_server.dispatcher.get_user_groups", new=AsyncMock(return_value=[])):
+        with patch(
+            "hermes_server.dispatcher.get_user_groups", new=AsyncMock(return_value=[])
+        ):
             yield
 
     async def _check(self, client, notification):
+        # Remote
         from hermes_server.dispatcher import _client_is_relevant
+
         return await _client_is_relevant(client, notification)
 
     # --- subscription ---
 
     async def test_matching_subscription_passes(self):
-        assert await self._check(
-            _make_client(subscriptions=["pr"]),
-            _make_notification(event_type="pr"),
-        ) is True
+        assert (
+            await self._check(
+                _make_client(subscriptions=["pr"]),
+                _make_notification(event_type="pr"),
+            )
+            is True
+        )
 
     async def test_non_matching_subscription_blocked(self):
-        assert await self._check(
-            _make_client(subscriptions=["workitem"]),
-            _make_notification(event_type="pr"),
-        ) is False
+        assert (
+            await self._check(
+                _make_client(subscriptions=["workitem"]),
+                _make_notification(event_type="pr"),
+            )
+            is False
+        )
 
     async def test_all_subscription_matches_any_event(self):
         client = _make_client(subscriptions=["all"])
         for event_type in ("pr", "workitem", "pipeline", "manual"):
-            assert await self._check(client, _make_notification(event_type=event_type)) is True
+            assert (
+                await self._check(client, _make_notification(event_type=event_type))
+                is True
+            )
 
     # --- manual always delivered ---
 
     async def test_manual_always_delivered_to_subscriber(self):
-        assert await self._check(
-            _make_client(subscriptions=["manual"]),
-            _make_notification(event_type="manual"),
-        ) is True
+        assert (
+            await self._check(
+                _make_client(subscriptions=["manual"]),
+                _make_notification(event_type="manual"),
+            )
+            is True
+        )
 
     # --- actor suppression ---
 
     async def test_actor_does_not_receive_own_event(self):
-        assert await self._check(
-            _make_client(ado_user_id="user-1"),
-            _make_notification(actor_id="user-1", mentioned_user_ids=["user-1"]),
-        ) is False
+        assert (
+            await self._check(
+                _make_client(ado_user_id="user-1"),
+                _make_notification(actor_id="user-1", mentioned_user_ids=["user-1"]),
+            )
+            is False
+        )
 
     async def test_other_user_not_suppressed_by_actor(self):
-        assert await self._check(
-            _make_client(ado_user_id="user-2"),
-            _make_notification(actor_id="user-1", mentioned_user_ids=["user-2"]),
-        ) is True
+        assert (
+            await self._check(
+                _make_client(ado_user_id="user-2"),
+                _make_notification(actor_id="user-1", mentioned_user_ids=["user-2"]),
+            )
+            is True
+        )
 
     # --- broadcast ---
 
     async def test_broadcast_with_no_mentions_delivered_to_all(self):
-        assert await self._check(
-            _make_client(subscriptions=["pr"]),
-            _make_notification(event_type="pr", mentioned_user_ids=[], mentioned_names=[]),
-        ) is True
+        assert (
+            await self._check(
+                _make_client(subscriptions=["pr"]),
+                _make_notification(
+                    event_type="pr", mentioned_user_ids=[], mentioned_names=[]
+                ),
+            )
+            is True
+        )
 
     # --- direct user ID match ---
 
     async def test_mentioned_user_receives_notification(self):
-        assert await self._check(
-            _make_client(ado_user_id="user-1"),
-            _make_notification(mentioned_user_ids=["user-1"]),
-        ) is True
+        assert (
+            await self._check(
+                _make_client(ado_user_id="user-1"),
+                _make_notification(mentioned_user_ids=["user-1"]),
+            )
+            is True
+        )
 
     async def test_non_mentioned_user_blocked_when_mentions_exist(self):
-        assert await self._check(
-            _make_client(ado_user_id="user-99"),
-            _make_notification(mentioned_user_ids=["user-1"]),
-        ) is False
+        assert (
+            await self._check(
+                _make_client(ado_user_id="user-99"),
+                _make_notification(mentioned_user_ids=["user-1"]),
+            )
+            is False
+        )
 
     # --- group matching ---
 
@@ -144,37 +181,48 @@ class TestClientIsRelevant:
             "hermes_server.dispatcher.get_user_groups",
             new=AsyncMock(return_value=["Backend Team"]),
         ):
-            assert await self._check(
-                _make_client(ado_user_id="user-1"),
-                _make_notification(mentioned_names=["Backend Team"]),
-            ) is True
+            assert (
+                await self._check(
+                    _make_client(ado_user_id="user-1"),
+                    _make_notification(mentioned_names=["Backend Team"]),
+                )
+                is True
+            )
 
     async def test_group_match_is_case_insensitive(self):
         with patch(
             "hermes_server.dispatcher.get_user_groups",
             new=AsyncMock(return_value=["backend team"]),
         ):
-            assert await self._check(
-                _make_client(ado_user_id="user-1"),
-                _make_notification(mentioned_names=["Backend Team"]),
-            ) is True
+            assert (
+                await self._check(
+                    _make_client(ado_user_id="user-1"),
+                    _make_notification(mentioned_names=["Backend Team"]),
+                )
+                is True
+            )
 
     async def test_non_group_member_blocked(self):
         with patch(
             "hermes_server.dispatcher.get_user_groups",
             new=AsyncMock(return_value=["Frontend Team"]),
         ):
-            assert await self._check(
-                _make_client(ado_user_id="user-1"),
-                _make_notification(mentioned_names=["Backend Team"]),
-            ) is False
+            assert (
+                await self._check(
+                    _make_client(ado_user_id="user-1"),
+                    _make_notification(mentioned_names=["Backend Team"]),
+                )
+                is False
+            )
 
     async def test_groups_not_fetched_when_user_id_already_matched(self):
         mock_groups = AsyncMock(return_value=["Some Group"])
         with patch("hermes_server.dispatcher.get_user_groups", new=mock_groups):
             await self._check(
                 _make_client(ado_user_id="user-1"),
-                _make_notification(mentioned_user_ids=["user-1"], mentioned_names=["Some Group"]),
+                _make_notification(
+                    mentioned_user_ids=["user-1"], mentioned_names=["Some Group"]
+                ),
             )
         mock_groups.assert_not_called()
 
@@ -192,10 +240,13 @@ class TestClientIsRelevant:
 # dispatch
 # ---------------------------------------------------------------------------
 
+
 class TestDispatch:
     @pytest.fixture(autouse=True)
     def patch_groups(self):
-        with patch("hermes_server.dispatcher.get_user_groups", new=AsyncMock(return_value=[])):
+        with patch(
+            "hermes_server.dispatcher.get_user_groups", new=AsyncMock(return_value=[])
+        ):
             yield
 
     def _mock_http(self):
@@ -213,12 +264,17 @@ class TestDispatch:
         mock_http = self._mock_http()
 
         with (
-            patch("hermes_server.dispatcher.get_all_clients", new=AsyncMock(return_value=[client])),
+            patch(
+                "hermes_server.dispatcher.get_all_clients",
+                new=AsyncMock(return_value=[client]),
+            ),
             patch("hermes_server.dispatcher.append_log", new=AsyncMock()),
             patch("hermes_server.dispatcher.save_client", new=AsyncMock()),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
+            # Remote
             from hermes_server.dispatcher import dispatch
+
             await dispatch(notif)
 
         mock_http.post.assert_called_once()
@@ -230,11 +286,16 @@ class TestDispatch:
         mock_http = self._mock_http()
 
         with (
-            patch("hermes_server.dispatcher.get_all_clients", new=AsyncMock(return_value=[client])),
+            patch(
+                "hermes_server.dispatcher.get_all_clients",
+                new=AsyncMock(return_value=[client]),
+            ),
             patch("hermes_server.dispatcher.append_log", new=AsyncMock()),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
+            # Remote
             from hermes_server.dispatcher import dispatch
+
             await dispatch(notif)
 
         mock_http.post.assert_not_called()
@@ -245,11 +306,16 @@ class TestDispatch:
         mock_http = self._mock_http()
 
         with (
-            patch("hermes_server.dispatcher.get_all_clients", new=AsyncMock(return_value=[client])),
+            patch(
+                "hermes_server.dispatcher.get_all_clients",
+                new=AsyncMock(return_value=[client]),
+            ),
             patch("hermes_server.dispatcher.append_log", new=AsyncMock()),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
+            # Remote
             from hermes_server.dispatcher import dispatch
+
             await dispatch(notif)
 
         mock_http.post.assert_not_called()
@@ -265,12 +331,17 @@ class TestDispatch:
         mock_http.post = AsyncMock(side_effect=Exception("Connection refused"))
 
         with (
-            patch("hermes_server.dispatcher.get_all_clients", new=AsyncMock(return_value=[client])),
+            patch(
+                "hermes_server.dispatcher.get_all_clients",
+                new=AsyncMock(return_value=[client]),
+            ),
             patch("hermes_server.dispatcher.append_log", new=mock_log),
             patch("hermes_server.dispatcher.save_client", new=AsyncMock()),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
+            # Remote
             from hermes_server.dispatcher import dispatch
+
             await dispatch(notif)
 
         mock_log.assert_called_once()

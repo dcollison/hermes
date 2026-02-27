@@ -11,16 +11,19 @@ Covers:
     - GET  /notifications/logs
 """
 
+# Standard
 import json
-import pytest
-import pytest_asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+# Remote
+import pytest
+import pytest_asyncio
 
 # ---------------------------------------------------------------------------
 # Shared test client fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest_asyncio.fixture
 async def client(tmp_path):
@@ -28,8 +31,12 @@ async def client(tmp_path):
     Async httpx client wrapping the FastAPI app, with the database
     pointed at a fresh temp directory for each test.
     """
+    # Standard
+    import logging
+    import logging.handlers
+
+    # Remote
     import hermes_server.database as db
-    import logging, logging.handlers
 
     clients_file = str(tmp_path / "clients.json")
     log_file = str(tmp_path / "notifications.log")
@@ -50,9 +57,15 @@ async def client(tmp_path):
         patch.object(db, "LOG_FILE", log_file),
         patch.object(db, "_notif_logger", nl),
     ):
-        from httpx import AsyncClient, ASGITransport
+        # Remote
+        from httpx import ASGITransport, AsyncClient
+
+        # Remote
         from hermes_server.main import app
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as c:
             yield c
 
     nl.handlers.clear()
@@ -70,6 +83,7 @@ REGISTER_BODY = {
 # ---------------------------------------------------------------------------
 # Client registration
 # ---------------------------------------------------------------------------
+
 
 class TestClientRegistration:
     @pytest.mark.asyncio
@@ -140,6 +154,7 @@ class TestClientRegistration:
 # Webhook receiver
 # ---------------------------------------------------------------------------
 
+
 class TestWebhookReceiver:
     def _pr_payload(self):
         return {
@@ -161,7 +176,10 @@ class TestWebhookReceiver:
     @pytest.mark.asyncio
     async def test_webhook_returns_accepted(self, client):
         with (
-            patch("hermes_server.routers.webhooks.format_webhook", new=AsyncMock(return_value=None)),
+            patch(
+                "hermes_server.routers.webhooks.format_webhook",
+                new=AsyncMock(return_value=None),
+            ),
             patch("hermes_server.routers.webhooks.dispatch", new=AsyncMock()),
         ):
             resp = await client.post("/webhooks/ado", json=self._pr_payload())
@@ -188,7 +206,10 @@ class TestWebhookReceiver:
     async def test_webhook_no_secret_configured_accepts_all(self, client):
         with (
             patch("hermes_server.routers.webhooks.settings") as mock_settings,
-            patch("hermes_server.routers.webhooks.format_webhook", new=AsyncMock(return_value=None)),
+            patch(
+                "hermes_server.routers.webhooks.format_webhook",
+                new=AsyncMock(return_value=None),
+            ),
             patch("hermes_server.routers.webhooks.dispatch", new=AsyncMock()),
         ):
             mock_settings.ADO_WEBHOOK_SECRET = None
@@ -199,6 +220,7 @@ class TestWebhookReceiver:
 # ---------------------------------------------------------------------------
 # Manual notifications
 # ---------------------------------------------------------------------------
+
 
 class TestManualNotifications:
     @pytest.mark.asyncio
@@ -212,16 +234,21 @@ class TestManualNotifications:
 
     @pytest.mark.asyncio
     async def test_send_manual_reaches_subscribed_clients(self, client):
-        await client.post("/clients/register", json={
-            **REGISTER_BODY,
-            "subscriptions": ["manual"],
-        })
+        await client.post(
+            "/clients/register",
+            json={
+                **REGISTER_BODY,
+                "subscriptions": ["manual"],
+            },
+        )
 
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
 
         with patch("httpx.AsyncClient") as mock_http:
-            mock_http.return_value.__aenter__ = AsyncMock(return_value=mock_http.return_value)
+            mock_http.return_value.__aenter__ = AsyncMock(
+                return_value=mock_http.return_value
+            )
             mock_http.return_value.__aexit__ = AsyncMock(return_value=False)
             mock_http.return_value.post = AsyncMock(return_value=mock_resp)
 
@@ -235,10 +262,13 @@ class TestManualNotifications:
 
     @pytest.mark.asyncio
     async def test_send_manual_not_delivered_to_non_subscriber(self, client):
-        await client.post("/clients/register", json={
-            **REGISTER_BODY,
-            "subscriptions": ["pr"],  # not subscribed to manual
-        })
+        await client.post(
+            "/clients/register",
+            json={
+                **REGISTER_BODY,
+                "subscriptions": ["pr"],  # not subscribed to manual
+            },
+        )
         resp = await client.post(
             "/notifications/send",
             json={"heading": "Hello", "body": "World"},

@@ -2,18 +2,21 @@
 Shared pytest fixtures for Hermes tests.
 """
 
+# Standard
 import json
 import os
-import pytest
-import pytest_asyncio
 import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
+# Remote
+import pytest
+import pytest_asyncio
 
 # ---------------------------------------------------------------------------
 # Temporary data directory — isolates every test from real files
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def tmp_data_dir(tmp_path):
@@ -21,6 +24,7 @@ def tmp_data_dir(tmp_path):
     Point the database module at a fresh temp directory for each test.
     Resets module-level globals that cache file paths.
     """
+    # Remote
     import server.database as db
 
     clients_file = str(tmp_path / "clients.json")
@@ -36,7 +40,10 @@ def tmp_data_dir(tmp_path):
         Path(log_file).touch()
 
         # Give the module a working notif logger pointing at the temp file
-        import logging, logging.handlers
+        # Standard
+        import logging
+        import logging.handlers
+
         nl = logging.getLogger("hermes.notifications.test")
         nl.propagate = False
         nl.setLevel(logging.INFO)
@@ -55,24 +62,38 @@ def tmp_data_dir(tmp_path):
 # Canonical ADO identity dicts
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def alice():
-    return {"id": "alice-id-001", "displayName": "Alice Smith", "uniqueName": "alice@corp.com"}
+    return {
+        "id": "alice-id-001",
+        "displayName": "Alice Smith",
+        "uniqueName": "alice@corp.com",
+    }
 
 
 @pytest.fixture
 def bob():
-    return {"id": "bob-id-002", "displayName": "Bob Jones", "uniqueName": "bob@corp.com"}
+    return {
+        "id": "bob-id-002",
+        "displayName": "Bob Jones",
+        "uniqueName": "bob@corp.com",
+    }
 
 
 @pytest.fixture
 def carol():
-    return {"id": "carol-id-003", "displayName": "Carol White", "uniqueName": "carol@corp.com"}
+    return {
+        "id": "carol-id-003",
+        "displayName": "Carol White",
+        "uniqueName": "carol@corp.com",
+    }
 
 
 # ---------------------------------------------------------------------------
 # A registered client record
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def client_record(alice):
@@ -93,10 +114,13 @@ def client_record(alice):
 # Suppress avatar fetch in formatter tests (returns None for all calls)
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=False)
 def no_avatar():
     """Patch get_user_avatar_b64 to return None — no network needed."""
-    with patch("server.ado_client.get_user_avatar_b64", new=AsyncMock(return_value=None)):
+    with patch(
+        "server.ado_client.get_user_avatar_b64", new=AsyncMock(return_value=None)
+    ):
         yield
 
 
@@ -104,12 +128,15 @@ def no_avatar():
 # FastAPI test client
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def api_client(tmp_data_dir):
     """
     httpx AsyncClient wrapping the FastAPI app with the database
     already pointed at the temp directory.
     """
-    from httpx import AsyncClient, ASGITransport
+    # Remote
+    from httpx import ASGITransport, AsyncClient
     from server.main import app
+
     return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")

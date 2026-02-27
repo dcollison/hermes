@@ -1,11 +1,6 @@
 """
 Hermes Client — Toast notification display.
 
-Tries toast backends in order:
-  1. win11toast  (Windows 11, recommended)
-  2. winotify    (Windows 10/11 fallback)
-  3. plyer       (cross-platform dev fallback)
-
 Notification payload fields used here:
   heading      str   — Toast title
   body         str   — Toast body text
@@ -16,6 +11,7 @@ Notification payload fields used here:
   event_type   str   — pr / workitem / pipeline / manual
 """
 
+# Standard
 import base64
 import logging
 import os
@@ -23,23 +19,24 @@ import tempfile
 from importlib import resources
 from typing import Optional
 
-from . import __app_name__, __app_id__
+# Local
+from . import __app_id__, __app_name__
 
 logger = logging.getLogger("hermes.client.notifier")
 
 # Maps status_image keys to bundled PNG filenames
 _STATUS_ICONS = {
-    "success":   "success.png",
-    "failure":   "failure.png",
+    "success": "success.png",
+    "failure": "failure.png",
     "cancelled": "cancelled.png",
 }
 
 # Maps event_type to a small fallback icon (used by winotify when no avatar)
 _EVENT_ICONS = {
-    "pr":       "pr.png",
+    "pr": "pr.png",
     "workitem": "workitem.png",
     "pipeline": "pipeline.png",
-    "manual":   "hermes.png",
+    "manual": "hermes.png",
 }
 
 
@@ -53,10 +50,14 @@ def show_notification(payload: dict):
     event_type: str = payload.get("event_type", "")
 
     avatar_path: Optional[str] = _save_b64_image(avatar_b64) if avatar_b64 else None
-    status_image_path: Optional[str] = _get_bundled_icon(
-        _STATUS_ICONS.get(status_image_key, "")
-    ) if status_image_key else None
-    event_icon_path: Optional[str] = _get_bundled_icon(_EVENT_ICONS.get(event_type, "hermes.png"))
+    status_image_path: Optional[str] = (
+        _get_bundled_icon(_STATUS_ICONS.get(status_image_key, ""))
+        if status_image_key
+        else None
+    )
+    event_icon_path: Optional[str] = _get_bundled_icon(
+        _EVENT_ICONS.get(event_type, "hermes.png")
+    )
 
     try:
         _display(heading, body, url, avatar_path, status_image_path, event_icon_path)
@@ -72,12 +73,13 @@ def _display(
     heading: str,
     body: str,
     url: str,
-    avatar_path: Optional[str],      # small round logo (app logo override)
-    status_image_path: Optional[str], # large hero banner
-    event_icon_path: Optional[str],   # fallback icon for winotify
+    avatar_path: Optional[str],  # small round logo (app logo override)
+    status_image_path: Optional[str],  # large hero banner
+    event_icon_path: Optional[str],  # fallback icon for winotify
 ):
     # --- win11toast ---
     try:
+        # Remote
         from win11toast import toast
 
         kwargs: dict = {}
@@ -92,7 +94,9 @@ def _display(
 
         def _on_click(args):
             if url:
+                # Standard
                 import webbrowser
+
                 webbrowser.open(url)
 
         toast(
@@ -113,6 +117,7 @@ def _display(
     # winotify doesn't support hero images; use the status icon as the toast icon
     # so the result is still visually distinct.
     try:
+        # Remote
         from winotify import Notification, audio
 
         icon = status_image_path or avatar_path or event_icon_path or ""
@@ -136,7 +141,9 @@ def _display(
 
     # --- plyer ---
     try:
+        # Remote
         from plyer import notification as plyer_notification
+
         plyer_notification.notify(
             title=heading,
             message=body,

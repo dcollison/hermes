@@ -45,3 +45,17 @@ module-root = ""
 asyncio_mode = "auto"
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "isort>=8.0.0",
+    "ruff>=0.15.4",
+]
+
+[tool.isort]
+profile = "black"
+src_paths = ["hermes_client", "hermes_server", "tests"]
+import_heading_stdlib = "Standard"
+import_heading_thirdparty = "Remote"
+import_heading_firstparty = "Remote"
+import_heading_localfolder = "Local"

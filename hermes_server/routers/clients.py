@@ -5,14 +5,22 @@ Clients register with their ADO identity so the server can route
 notifications to the right people based on mentions and group membership.
 """
 
+# Standard
 import logging
+from typing import List, Optional
+
+# Remote
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional, List
 
+# Local
 from ..database import (
-    get_all_clients, get_client, get_client_by_callback,
-    save_client, delete_client, make_client,
+    delete_client,
+    get_all_clients,
+    get_client,
+    get_client_by_callback,
+    make_client,
+    save_client,
 )
 
 logger = logging.getLogger(__name__)
@@ -20,10 +28,10 @@ router = APIRouter()
 
 
 class RegisterRequest(BaseModel):
-    name: str                  # Human-readable label, e.g. "Alice's PC"
-    callback_url: str          # e.g. http://192.168.1.50:9000/notify
-    ado_user_id: str           # ADO identity ID (GUID) — used for mention matching
-    display_name: str          # ADO display name — used for group name matching
+    name: str  # Human-readable label, e.g. "Alice's PC"
+    callback_url: str  # e.g. http://192.168.1.50:9000/notify
+    ado_user_id: str  # ADO identity ID (GUID) — used for mention matching
+    display_name: str  # ADO display name — used for group name matching
     subscriptions: List[str] = ["pr", "workitem", "pipeline", "manual"]
 
 
@@ -59,13 +67,15 @@ async def register_client(body: RegisterRequest):
     """
     existing = await get_client_by_callback(body.callback_url)
     if existing:
-        existing.update({
-            "name": body.name,
-            "ado_user_id": body.ado_user_id,
-            "display_name": body.display_name,
-            "subscriptions": body.subscriptions,
-            "active": True,
-        })
+        existing.update(
+            {
+                "name": body.name,
+                "ado_user_id": body.ado_user_id,
+                "display_name": body.display_name,
+                "subscriptions": body.subscriptions,
+                "active": True,
+            }
+        )
         await save_client(existing)
         logger.info(f"Updated client registration: {body.name} ({body.callback_url})")
         return _to_response(existing)

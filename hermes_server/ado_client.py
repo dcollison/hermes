@@ -6,12 +6,16 @@ Caches avatar images and group memberships in-process so repeated webhook
 events for the same users don't hammer the ADO API.
 """
 
+# Standard
 import base64
-import httpx
 import logging
-from typing import Optional
 from functools import lru_cache
+from typing import Optional
 
+# Remote
+import httpx
+
+# Local
 from .config import settings
 
 logger = logging.getLogger(__name__)
@@ -95,7 +99,9 @@ async def get_user_groups(identity_id: str) -> list[str]:
         # Step 2: resolve each group ID to a display name
         if member_of_ids:
             ids_param = ",".join(member_of_ids)
-            resolve_url = f"{settings.ADO_ORGANIZATION_URL.rstrip('/')}/_apis/identities"
+            resolve_url = (
+                f"{settings.ADO_ORGANIZATION_URL.rstrip('/')}/_apis/identities"
+            )
             resolve_params = {
                 "api-version": API_VERSION,
                 "identityIds": ids_param,
@@ -106,7 +112,9 @@ async def get_user_groups(identity_id: str) -> list[str]:
                 )
                 if resp.status_code == 200:
                     for item in resp.json().get("value", []):
-                        name = item.get("providerDisplayName") or item.get("customDisplayName", "")
+                        name = item.get("providerDisplayName") or item.get(
+                            "customDisplayName", ""
+                        )
                         if name:
                             groups.append(name)
 

@@ -9,18 +9,21 @@ Covers:
   - append_log / get_logs (filtering, ordering, limit)
 """
 
-import json
+# Standard
 import asyncio
+import json
 import logging
 import logging.handlers
-import pytest
 from pathlib import Path
 from unittest.mock import patch
 
+# Remote
+import pytest
 
 # ---------------------------------------------------------------------------
 # Fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest.fixture
 def db(tmp_path):
@@ -28,6 +31,7 @@ def db(tmp_path):
     Patch all path constants in hermes_server.database to a fresh temp dir
     and wire up a RotatingFileHandler for the notification logger.
     """
+    # Remote
     import hermes_server.database as db_module
 
     clients_file = str(tmp_path / "clients.json")
@@ -58,10 +62,15 @@ def db(tmp_path):
 # Constructors  (synchronous — no event loop needed)
 # ---------------------------------------------------------------------------
 
+
 class TestConstructors:
     def test_make_client_has_required_fields(self):
+        # Remote
         from hermes_server.database import make_client
-        c = make_client("Alice's PC", "http://host/notify", "uid-1", "Alice Smith", ["pr"])
+
+        c = make_client(
+            "Alice's PC", "http://host/notify", "uid-1", "Alice Smith", ["pr"]
+        )
         assert c["name"] == "Alice's PC"
         assert c["ado_user_id"] == "uid-1"
         assert c["display_name"] == "Alice Smith"
@@ -72,13 +81,17 @@ class TestConstructors:
         assert "registered_at" in c
 
     def test_make_client_generates_unique_ids(self):
+        # Remote
         from hermes_server.database import make_client
+
         c1 = make_client("A", "http://a/notify", "u1", "A", [])
         c2 = make_client("B", "http://b/notify", "u2", "B", [])
         assert c1["id"] != c2["id"]
 
     def test_make_log_entry_fields(self):
+        # Remote
         from hermes_server.database import make_log_entry
+
         entry = make_log_entry("c1", "pr", {"key": "val"}, True, None)
         assert entry["client_id"] == "c1"
         assert entry["event_type"] == "pr"
@@ -93,9 +106,12 @@ class TestConstructors:
 # Client CRUD
 # ---------------------------------------------------------------------------
 
+
 class TestClientCRUD:
     def _make(self, name="Alice", uid="u1", url="http://host/notify"):
+        # Remote
         from hermes_server.database import make_client
+
         return make_client(name, url, uid, name, ["pr", "workitem"])
 
     async def test_save_and_retrieve_client(self, db):
@@ -163,9 +179,12 @@ class TestClientCRUD:
 # Notification log
 # ---------------------------------------------------------------------------
 
+
 class TestNotificationLog:
     def _entry(self, event_type="pr", client_id="c1", success=True):
+        # Remote
         from hermes_server.database import make_log_entry
+
         return make_log_entry(client_id, event_type, {"test": True}, success, None)
 
     async def test_append_and_retrieve_log(self, db):
@@ -192,8 +211,12 @@ class TestNotificationLog:
         assert all(e["client_id"] == "c1" for e in logs)
 
     async def test_get_logs_newest_first(self, db):
-        from hermes_server.database import make_log_entry
+        # Standard
         import time
+
+        # Remote
+        from hermes_server.database import make_log_entry
+
         e1 = make_log_entry("c1", "pr", {"seq": 1}, True, None)
         time.sleep(0.02)
         e2 = make_log_entry("c1", "pr", {"seq": 2}, True, None)

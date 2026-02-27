@@ -10,16 +10,20 @@ Supported event types:
   - ms.vss-release.release-created-event / deployment-completed-event / release-abandoned-event
 """
 
-import hmac
-import hashlib
-import logging
-from fastapi import APIRouter, Request, HTTPException, Header
-from typing import Optional
+# Standard
 import asyncio
+import hashlib
+import hmac
+import logging
+from typing import Optional
 
+# Remote
+from fastapi import APIRouter, Header, HTTPException, Request
+
+# Local
 from ..config import settings
-from ..formatter import format_webhook
 from ..dispatcher import dispatch
+from ..formatter import format_webhook
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

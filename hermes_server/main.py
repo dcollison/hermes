@@ -2,13 +2,17 @@
 Hermes Server - Azure DevOps Webhook Receiver & Notification Dispatcher
 """
 
-import uvicorn
-from fastapi import FastAPI
+# Standard
 from contextlib import asynccontextmanager
 
-from .routers import webhooks, clients, notifications
-from .database import init_db
+# Remote
+import uvicorn
+from fastapi import FastAPI
+
+# Local
 from .config import settings
+from .database import init_db
+from .routers import clients, notifications, webhooks
 
 
 @asynccontextmanager
@@ -27,7 +31,9 @@ app = FastAPI(
 
 app.include_router(webhooks.router, prefix="/webhooks", tags=["webhooks"])
 app.include_router(clients.router, prefix="/clients", tags=["clients"])
-app.include_router(notifications.router, prefix="/notifications", tags=["notifications"])
+app.include_router(
+    notifications.router, prefix="/notifications", tags=["notifications"]
+)
 
 
 @app.get("/health")

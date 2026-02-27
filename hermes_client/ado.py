@@ -5,11 +5,13 @@ Synchronous (blocking) helpers used at startup/configure time — before the
 asyncio event loop is running. Not used during normal notification receive.
 """
 
+# Standard
 import base64
 import logging
 import socket
 from typing import Optional
 
+# Remote
 import httpx
 
 logger = logging.getLogger("hermes.client.ado")
@@ -55,7 +57,9 @@ def resolve_identity(ado_url: str, pat: str) -> dict:
     )
 
     if not user_id:
-        raise ValueError("ADO returned no user ID — check the organisation URL and PAT.")
+        raise ValueError(
+            "ADO returned no user ID — check the organisation URL and PAT."
+        )
 
     return {"user_id": user_id, "display_name": display_name}
 

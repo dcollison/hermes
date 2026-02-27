@@ -10,13 +10,17 @@ Routing is identity-based: a client receives a notification when:
      AND the client is not the actor who triggered the event.
 """
 
+# Standard
 import asyncio
-import httpx
 import logging
 from datetime import datetime, timezone
 
+# Remote
+import httpx
+
+# Local
 from .ado_client import get_user_groups
-from .database import get_all_clients, append_log, save_client, make_log_entry
+from .database import append_log, get_all_clients, make_log_entry, save_client
 
 logger = logging.getLogger(__name__)
 
@@ -99,10 +103,12 @@ async def _send(client: dict, notification: dict):
         error_msg = str(e)
         logger.warning(f"Failed to notify client '{client['name']}': {e}")
 
-    await append_log(make_log_entry(
-        client_id=client["id"],
-        event_type=notification.get("event_type", "unknown"),
-        payload=notification,
-        success=success,
-        error=error_msg,
-    ))
+    await append_log(
+        make_log_entry(
+            client_id=client["id"],
+            event_type=notification.get("event_type", "unknown"),
+            payload=notification,
+            success=success,
+            error=error_msg,
+        )
+    )

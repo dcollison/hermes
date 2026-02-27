@@ -15,6 +15,7 @@ All reads and writes are protected by an asyncio lock so concurrent
 webhook dispatches don't corrupt the files.
 """
 
+# Standard
 import asyncio
 import json
 import logging
@@ -52,6 +53,7 @@ _notif_logger: Optional[logging.Logger] = None
 # ---------------------------------------------------------------------------
 # Initialisation
 # ---------------------------------------------------------------------------
+
 
 def _build_notif_logger() -> logging.Logger:
     """
@@ -101,6 +103,7 @@ async def init_db():
 # Low-level JSON helpers for clients.json
 # ---------------------------------------------------------------------------
 
+
 def _read_json(path: str):
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -116,6 +119,7 @@ def _write_json(path: str, data):
 # ---------------------------------------------------------------------------
 # Client helpers
 # ---------------------------------------------------------------------------
+
 
 async def get_all_clients() -> list:
     async with _lock:
@@ -161,6 +165,7 @@ async def delete_client(client_id: str) -> bool:
 # Notification log helpers
 # ---------------------------------------------------------------------------
 
+
 async def append_log(entry: dict):
     """
     Write one notification entry to the rotating log file.
@@ -179,9 +184,7 @@ def _log_files_newest_first() -> list[str]:
       [notifications.log, notifications.log.1, notifications.log.2, ...]
     Only paths that actually exist are included.
     """
-    paths = [LOG_FILE] + [
-        f"{LOG_FILE}.{i}" for i in range(1, LOG_BACKUP_COUNT + 1)
-    ]
+    paths = [LOG_FILE] + [f"{LOG_FILE}.{i}" for i in range(1, LOG_BACKUP_COUNT + 1)]
     return [p for p in paths if os.path.exists(p)]
 
 
@@ -229,6 +232,7 @@ async def get_logs(
 # ---------------------------------------------------------------------------
 # Convenience constructors
 # ---------------------------------------------------------------------------
+
 
 def make_client(name, callback_url, ado_user_id, display_name, subscriptions):
     now = datetime.now(timezone.utc).isoformat()

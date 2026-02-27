@@ -13,19 +13,20 @@ Or with a virtual environment:
     nssm install Hermes "C:\hermes\.venv\Scripts\python.exe" "C:\hermes\run_server.py"
 """
 
+# Standard
 import sys
 from pathlib import Path
 
 # Ensure the hermes package root is on the path
 sys.path.insert(0, str(Path(__file__)))
 
+# Remote
 import uvicorn
 
 if __name__ == "__main__":
     uvicorn.run(
-        "server.main:app",
+        "hermes_server.main:app",
         host="0.0.0.0",
         port=8000,
         log_level="info",
-        access_log=True,
     )
