@@ -18,14 +18,11 @@ _STATUS_ICONS = {
     "success": "success.png",
     "failure": "failure.png",
     "cancelled": "cancelled.png",
-}
-
-# Maps event_type to a small fallback icon (used by winotify when no avatar)
-_EVENT_ICONS = {
-    "pr": "pr.png",
+    "new pr": "pr.png",
     "workitem": "wi.png",
     "pipeline": "pipeline.png",
     "manual": "hermesbg.png",
+    "hermes": "hermes.png",
 }
 
 
@@ -37,11 +34,11 @@ def show_notification(payload: dict):
     body = payload.get("body", "")
     url = payload.get("url") or ""
     avatar_b64: str | None = payload.get("avatar_b64")
-    status_image_key: str | None = payload.get("status_image")
+    status_image_key: str | None = payload.get("status_image", "hermes")
 
     avatar_path: str | None = _save_b64_image(avatar_b64) if avatar_b64 else None
     status_image_path: str | None = (
-        _get_bundled_icon(_STATUS_ICONS.get(status_image_key, ""))
+        _get_bundled_icon(_STATUS_ICONS.get(status_image_key, "hermes"))
         if status_image_key
         else None
     )
@@ -57,28 +54,27 @@ def show_notification(payload: dict):
 
 
 def _display(
-    heading: str,
-    body: str,
-    url: str,
-    avatar_path: str | None,
-    status_image_path: str | None,
+        heading: str,
+        body: str,
+        url: str,
+        avatar_path: str | None,
+        status_image_path: str | None,
 ):
+    # Log the attempt so Dale can verify the payload is correct
+    logger.info(f"[TOAST] {heading}: {body}")
+
     try:
         kwargs: dict = {}
 
-        # Hero image: large banner shown at the top of the toast
-        if status_image_path:
-            kwargs["hero"] = {"src": status_image_path, "alt": "status"}
-
-        # App logo override: small image in the bottom-left corner
         if avatar_path:
-            kwargs["image"] = {"src": avatar_path, "placement": "appLogoOverride"}
+            kwargs["icon"] = avatar_path
+        elif status_image_path:
+            kwargs["icon"] = status_image_path
 
         def _on_click(args):
             if url:
                 # Standard
                 import webbrowser
-
                 webbrowser.open(url)
 
         toast(
@@ -92,8 +88,6 @@ def _display(
         return
     except Exception as e:
         logger.debug(f"win11toast failed: {e}")
-
-    logger.info(f"[TOAST] {heading}: {body}")
 
 
 def _save_b64_image(b64: str) -> str | None:
@@ -130,4 +124,5 @@ def _get_bundled_icon(filename: str) -> str | None:
             return str(ref)
     except Exception:
         pass
+
     return None

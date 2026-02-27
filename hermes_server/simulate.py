@@ -1,13 +1,9 @@
 """
 Hermes — Fake ADO webhook payloads for local end-to-end testing.
 
-Each factory function returns a realistic ADO 5.1-preview webhook payload
-that the server's /webhooks/ado endpoint will accept and process exactly as
-it would a real event from ADO.
-
-The `user` dict passed to each factory is injected as the relevant identity
-(PR author, build requester, etc.) so the dispatcher's mention-matching routes
-the notification to the right registered client.
+Updated factories ensure that the test user is placed in the correct role
+(e.g. Reviewer for new PRs, Author for Merged PRs) to bypass actor suppression
+and test identity routing effectively.
 """
 
 import uuid
@@ -45,8 +41,10 @@ def _repo(name: str = "MyRepo") -> dict:
 # ---------------------------------------------------------------------------
 
 def pr_created(user: dict, reviewer: dict = None) -> dict:
+    """User is a reviewer on a new PR opened by someone else."""
     pr_id = 42
-    reviewers = [reviewer] if reviewer else []
+    author = _user("Alice (Dev)", str(uuid.uuid4()))
+    # If the user is passed in, make THEM the reviewer so they see the toast
     return {
         "eventType": "git.pullrequest.created",
         "resource": {
@@ -58,8 +56,8 @@ def pr_created(user: dict, reviewer: dict = None) -> dict:
             "sourceRefName": "refs/heads/feature/simulate",
             "targetRefName": "refs/heads/main",
             "url": f"http://ado/MyProject/_git/MyRepo/pullrequest/{pr_id}",
-            "createdBy": user,
-            "reviewers": reviewers,
+            "createdBy": author,
+            "reviewers": [user],
             "creationDate": _now(),
         },
         "resourceContainers": {"project": _project()},
@@ -67,7 +65,9 @@ def pr_created(user: dict, reviewer: dict = None) -> dict:
 
 
 def pr_merged(user: dict, merger: dict = None) -> dict:
+    """User's PR is merged by someone else."""
     pr_id = 42
+    merger = merger or _user("Build Master", str(uuid.uuid4()))
     return {
         "eventType": "git.pullrequest.merged",
         "resource": {
@@ -79,7 +79,7 @@ def pr_merged(user: dict, merger: dict = None) -> dict:
             "targetRefName": "refs/heads/main",
             "url": f"http://ado/MyProject/_git/MyRepo/pullrequest/{pr_id}",
             "createdBy": user,
-            "closedBy": merger or user,
+            "closedBy": merger,
             "reviewers": [],
             "closedDate": _now(),
         },
@@ -88,8 +88,9 @@ def pr_merged(user: dict, merger: dict = None) -> dict:
 
 
 def pr_comment(user: dict, commenter: dict = None) -> dict:
+    """Someone comments on the user's PR."""
     pr_id = 42
-    commenter = commenter or _user("Alice Smith", str(uuid.uuid4()))
+    commenter = commenter or _user("Bob (Reviewer)", str(uuid.uuid4()))
     return {
         "eventType": "ms.vss-code.git-pullrequest-comment-event",
         "resource": {
@@ -120,6 +121,7 @@ def pr_comment(user: dict, commenter: dict = None) -> dict:
 # ---------------------------------------------------------------------------
 
 def workitem_assigned(user: dict) -> dict:
+    """A work item is assigned to the user."""
     return {
         "eventType": "workitem.updated",
         "resource": {
@@ -138,6 +140,7 @@ def workitem_assigned(user: dict) -> dict:
 
 
 def workitem_created(user: dict) -> dict:
+    """A new bug is created and assigned to the user."""
     return {
         "eventType": "workitem.created",
         "resource": {
@@ -148,7 +151,7 @@ def workitem_created(user: dict) -> dict:
                 "System.Title": "Simulated bug report",
                 "System.State": "New",
                 "System.AssignedTo": user,
-                "System.ChangedBy": user,
+                "System.ChangedBy": _user("QA Tester", str(uuid.uuid4())),
             },
         },
         "resourceContainers": {"project": _project()},
@@ -160,6 +163,7 @@ def workitem_created(user: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def build_succeeded(user: dict) -> dict:
+    """A build requested by the user succeeded."""
     return {
         "eventType": "build.complete",
         "resource": {
@@ -178,6 +182,7 @@ def build_succeeded(user: dict) -> dict:
 
 
 def build_failed(user: dict) -> dict:
+    """A build requested by the user failed."""
     payload = build_succeeded(user)
     payload["resource"]["result"] = "failed"
     payload["resource"]["buildNumber"] = "20260101.2"
@@ -185,6 +190,7 @@ def build_failed(user: dict) -> dict:
 
 
 def deployment_succeeded(user: dict) -> dict:
+    """A deployment requested by the user succeeded."""
     return {
         "eventType": "ms.vss-release.deployment-completed-event",
         "resource": {
@@ -200,6 +206,7 @@ def deployment_succeeded(user: dict) -> dict:
 
 
 def deployment_failed(user: dict) -> dict:
+    """A deployment requested by the user failed."""
     payload = deployment_succeeded(user)
     payload["resource"]["environment"]["status"] = "failed"
     return payload
@@ -211,13 +218,13 @@ def deployment_failed(user: dict) -> dict:
 
 # Each entry: (factory_fn, description)
 EVENTS: dict[str, tuple] = {
-    "pr-created":           (pr_created,          "New pull request opened"),
-    "pr-merged":            (pr_merged,            "Pull request merged"),
-    "pr-comment":           (pr_comment,           "Comment added to a pull request"),
+    "pr-created":           (pr_created,          "New PR opened (you are a reviewer)"),
+    "pr-merged":            (pr_merged,            "Your PR was merged"),
+    "pr-comment":           (pr_comment,           "Someone commented on your PR"),
     "workitem-assigned":    (workitem_assigned,     "Work item assigned to you"),
-    "workitem-created":     (workitem_created,      "New work item created and assigned"),
-    "build-succeeded":      (build_succeeded,       "CI build passed"),
-    "build-failed":         (build_failed,          "CI build failed"),
-    "deployment-succeeded": (deployment_succeeded,  "Deployment to Production succeeded"),
-    "deployment-failed":    (deployment_failed,     "Deployment to Production failed"),
+    "workitem-created":     (workitem_created,      "New bug assigned to you"),
+    "build-succeeded":      (build_succeeded,       "Your build passed"),
+    "build-failed":         (build_failed,          "Your build failed"),
+    "deployment-succeeded": (deployment_succeeded,  "Your deployment succeeded"),
+    "deployment-failed":    (deployment_failed,     "Your deployment failed"),
 }

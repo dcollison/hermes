@@ -6,7 +6,7 @@ Routing is identity-based: a client receives a notification when:
        - The notification has no specific mentions (broadcast event)
        - The client's ADO user ID appears in notification's mentions.user_ids
        - Any of the client's ADO group names appear in notification's mentions.names
-     AND the client is not the actor who triggered the event.
+     AND the client is not the actor who triggered the event (unless explicitly mentioned).
 """
 
 # Standard
@@ -39,15 +39,18 @@ async def _client_is_relevant(client: dict, notification: dict) -> bool:
         return True
 
     # --- identity check ---
-    # Don't notify someone about their own action
-    actor_id = notification.get("actor_id")
     client_uid = client.get("ado_user_id")
-    if actor_id and client_uid and actor_id == client_uid:
-        return False
-
+    actor_id = notification.get("actor_id")
     mentions: dict = notification.get("mentions", {})
     mentioned_user_ids: list[str] = mentions.get("user_ids", [])
     mentioned_names: list[str] = [n.lower() for n in mentions.get("names", [])]
+
+    # Don't notify someone about their own action...
+    if actor_id and client_uid and actor_id == client_uid:
+        # ...UNLESS the formatter explicitly mentioned them anyway.
+        # This allows users to see their own build results or PR merge confirmations.
+        if client_uid not in mentioned_user_ids:
+            return False
 
     # If there are no mentions it's a broadcast — send to all subscribers
     if not mentioned_user_ids and not mentioned_names:

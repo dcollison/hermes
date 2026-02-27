@@ -133,15 +133,16 @@ async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
     elif event_type == "git.pullrequest.created":
         actor_name = created_by.get("displayName", "Someone")
         actor_id = created_by.get("id")
-        body = f"🔀 {actor_name} opened PR #{pr_id} in {repo}\n{source} → {target}"
+        body = f"{actor_name} opened PR #{pr_id} in {repo}\n{source} → {target}"
         heading = "New Pull Request"
+        status_image = "new pr"
         mentioned = _mentions(*reviewers, actor_id=actor_id)
 
     elif event_type == "git.pullrequest.merged":
         merged_by = resource.get("closedBy", created_by)
         actor_name = merged_by.get("displayName", "Someone")
         actor_id = merged_by.get("id")
-        body = f"✅ PR #{pr_id} merged in {repo}\n{title}"
+        body = f"PR #{pr_id} merged in {repo}\n{title}"
         heading = "PR Merged"
         status_image = "success"
         # Notify reviewers, and always include the PR author — even if they
@@ -157,7 +158,7 @@ async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
     else:  # updated
         actor_name = created_by.get("displayName", "Someone")
         actor_id = created_by.get("id")
-        body = f"🔄 PR #{pr_id} updated ({status}): {title}"
+        body = f"PR #{pr_id} updated ({status}): {title}"
         heading = "PR Updated"
         mentioned = _mentions(*reviewers, actor_id=actor_id)
 
@@ -221,18 +222,18 @@ async def _format_workitem(
 
     if event_type == "workitem.created":
         heading = f"New {wi_type}"
-        body = f"📋 {actor_name} created {wi_type} #{wi_id}: {wi_title}"
+        body = f"{actor_name} created {wi_type} #{wi_id}: {wi_title}"
         if assigned_to_name:
             body += f"\nAssigned to: {assigned_to_name}"
     elif event_type == "workitem.commented":
         heading = f"{wi_type} Comment"
-        body = f"💬 {actor_name} commented on {wi_type} #{wi_id}: {wi_title}"
+        body = f"{actor_name} commented on {wi_type} #{wi_id}: {wi_title}"
     elif event_type in ("workitem.resolved", "workitem.closed"):
         heading = f"{wi_type} {state}"
-        body = f"✅ {actor_name} {state.lower()} {wi_type} #{wi_id}: {wi_title}"
+        body = f"{actor_name} {state.lower()} {wi_type} #{wi_id}: {wi_title}"
     else:
         heading = f"{wi_type} Updated"
-        body = f"✏️ {actor_name} updated {wi_type} #{wi_id}: {wi_title}"
+        body = f"✏{actor_name} updated {wi_type} #{wi_id}: {wi_title}"
         if state:
             body += f" [{state}]"
 
@@ -300,9 +301,8 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
             "url",
             "",
         )
-        emoji = {"succeeded": "✅", "failed": "❌", "canceled": "⛔"}.get(result, "🔨")
         heading = f"Build {result.replace('partiallysucceeded', 'partially succeeded').title()}"
-        body = f"{emoji} {definition} #{build_num} {result}\nTriggered by: {actor_name}"
+        body = f"{definition} #{build_num} {result}\nTriggered by: {actor_name}"
         status_image = _BUILD_STATUS_IMAGE.get(result)
         # Always notify the person who triggered the build — it's their result
         mentioned = _mentions(requested_for, actor_id=None)
@@ -316,7 +316,7 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         actor_id = created_by.get("id")
         url = release.get("_links", {}).get("web", {}).get("href", "")
         heading = "Release Created"
-        body = f"🚀 {actor_name} created {rel_name}"
+        body = f"{actor_name} created {rel_name}"
         if definition:
             body += f" ({definition})"
         mentioned = _mentions(actor_id=actor_id)
@@ -333,12 +333,8 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         url = (
             resource.get("release", {}).get("_links", {}).get("web", {}).get("href", "")
         )
-        emoji = {"succeeded": "✅", "failed": "❌", "canceled": "⛔"}.get(
-            deploy_status,
-            "🚢",
-        )
         heading = f"Deployment {deploy_status.title()}"
-        body = f"{emoji} {rel_name} → {env_name}: {deploy_status}"
+        body = f"{rel_name} → {env_name}: {deploy_status}"
         status_image = _DEPLOY_STATUS_IMAGE.get(deploy_status)
         mentioned = _mentions(requested_for, actor_id=None)
 
@@ -349,7 +345,7 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         actor_id = modified_by.get("id")
         url = resource.get("_links", {}).get("web", {}).get("href", "")
         heading = "Release Abandoned"
-        body = f"⛔ {actor_name} abandoned {rel_name}"
+        body = f"{actor_name} abandoned {rel_name}"
         status_image = "cancelled"
         mentioned = _mentions(actor_id=actor_id)
 
