@@ -6,6 +6,7 @@ Updated factories ensure that the test user is placed in the correct role
 and test identity routing effectively.
 """
 
+# Standard
 import uuid
 from datetime import datetime, timezone
 
@@ -39,6 +40,7 @@ def _repo(name: str = "MyRepo") -> dict:
 # ---------------------------------------------------------------------------
 # Pull Request
 # ---------------------------------------------------------------------------
+
 
 def pr_created(user: dict, reviewer: dict = None) -> dict:
     """User is a reviewer on a new PR opened by someone else."""
@@ -120,6 +122,7 @@ def pr_comment(user: dict, commenter: dict = None) -> dict:
 # Work Items
 # ---------------------------------------------------------------------------
 
+
 def workitem_assigned(user: dict) -> dict:
     """A work item is assigned to the user."""
     return {
@@ -162,6 +165,7 @@ def workitem_created(user: dict) -> dict:
 # Pipelines / Builds
 # ---------------------------------------------------------------------------
 
+
 def build_succeeded(user: dict) -> dict:
     """A build requested by the user succeeded."""
     return {
@@ -173,7 +177,9 @@ def build_succeeded(user: dict) -> dict:
             "status": "completed",
             "definition": {"name": "CI Pipeline"},
             "requestedFor": user,
-            "_links": {"web": {"href": "http://ado/MyProject/_build/results?buildId=1001"}},
+            "_links": {
+                "web": {"href": "http://ado/MyProject/_build/results?buildId=1001"}
+            },
             "startTime": _now(),
             "finishTime": _now(),
         },
@@ -197,7 +203,11 @@ def deployment_succeeded(user: dict) -> dict:
             "environment": {"name": "Production", "status": "succeeded"},
             "release": {
                 "name": "Release-42",
-                "_links": {"web": {"href": "http://ado/MyProject/_releaseProgress?releaseId=42"}},
+                "_links": {
+                    "web": {
+                        "href": "http://ado/MyProject/_releaseProgress?releaseId=42"
+                    }
+                },
             },
             "deployment": {"requestedFor": user},
         },
@@ -218,13 +228,13 @@ def deployment_failed(user: dict) -> dict:
 
 # Each entry: (factory_fn, description)
 EVENTS: dict[str, tuple] = {
-    "pr-created":           (pr_created,          "New PR opened (you are a reviewer)"),
-    "pr-merged":            (pr_merged,            "Your PR was merged"),
-    "pr-comment":           (pr_comment,           "Someone commented on your PR"),
-    "workitem-assigned":    (workitem_assigned,     "Work item assigned to you"),
-    "workitem-created":     (workitem_created,      "New bug assigned to you"),
-    "build-succeeded":      (build_succeeded,       "Your build passed"),
-    "build-failed":         (build_failed,          "Your build failed"),
-    "deployment-succeeded": (deployment_succeeded,  "Your deployment succeeded"),
-    "deployment-failed":    (deployment_failed,     "Your deployment failed"),
+    "pr-created": (pr_created, "New PR opened (you are a reviewer)"),
+    "pr-merged": (pr_merged, "Your PR was merged"),
+    "pr-comment": (pr_comment, "Someone commented on your PR"),
+    "workitem-assigned": (workitem_assigned, "Work item assigned to you"),
+    "workitem-created": (workitem_created, "New bug assigned to you"),
+    "build-succeeded": (build_succeeded, "Your build passed"),
+    "build-failed": (build_failed, "Your build failed"),
+    "deployment-succeeded": (deployment_succeeded, "Your deployment succeeded"),
+    "deployment-failed": (deployment_failed, "Your deployment failed"),
 }

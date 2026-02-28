@@ -15,14 +15,14 @@ logger = logging.getLogger("hermes.client.notifier")
 
 # Maps status_image keys to bundled PNG filenames
 _STATUS_ICONS = {
-    "success": "success.png",
+    "success": "succeeded.png",
     "failure": "failure.png",
     "cancelled": "cancelled.png",
     "new pr": "pr.png",
     "workitem": "wi.png",
     "pipeline": "pipeline.png",
     "manual": "hermesbg.png",
-    "hermes": "hermes.png",
+    "fallback": "hermes.png",
 }
 
 
@@ -34,11 +34,11 @@ def show_notification(payload: dict):
     body = payload.get("body", "")
     url = payload.get("url") or ""
     avatar_b64: str | None = payload.get("avatar_b64")
-    status_image_key: str | None = payload.get("status_image", "hermes")
+    status_image_key: str | None = payload.get("status_image", "fallback")
 
     avatar_path: str | None = _save_b64_image(avatar_b64) if avatar_b64 else None
     status_image_path: str | None = (
-        _get_bundled_icon(_STATUS_ICONS.get(status_image_key, "hermes"))
+        _get_bundled_icon(_STATUS_ICONS.get(status_image_key, "fallback"))
         if status_image_key
         else None
     )
@@ -54,11 +54,11 @@ def show_notification(payload: dict):
 
 
 def _display(
-        heading: str,
-        body: str,
-        url: str,
-        avatar_path: str | None,
-        status_image_path: str | None,
+    heading: str,
+    body: str,
+    url: str,
+    avatar_path: str | None,
+    status_image_path: str | None,
 ):
     # Log the attempt so Dale can verify the payload is correct
     logger.info(f"[TOAST] {heading}: {body}")
@@ -75,6 +75,7 @@ def _display(
             if url:
                 # Standard
                 import webbrowser
+
                 webbrowser.open(url)
 
         toast(
