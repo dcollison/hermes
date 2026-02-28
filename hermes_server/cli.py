@@ -30,7 +30,6 @@ import uvicorn
 # Local
 from . import __version__
 
-
 # ---------------------------------------------------------------------------
 # run
 # ---------------------------------------------------------------------------
@@ -183,7 +182,9 @@ def _cmd_simulate(args: argparse.Namespace):
             elif raw in options:
                 event_name = raw
                 break
-            print(f"  Invalid choice — enter a number 1–{len(options)} or an event name.")
+            print(
+                f"  Invalid choice — enter a number 1–{len(options)} or an event name."
+            )
 
     if event_name not in options:
         print(f"Unknown event '{event_name}'. Run --list to see available events.")

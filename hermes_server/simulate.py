@@ -70,7 +70,10 @@ def generate_payload(event: str, target_user: str) -> dict:
         elif event == "pr-merged":
             resource["closedBy"] = {"id": "merger-id", "displayName": "Sim Merger"}
             # Make the target user the PR author so they receive the merge notification
-            resource["createdBy"] = {"id": target_user, "displayName": "Sim Target User"}
+            resource["createdBy"] = {
+                "id": target_user,
+                "displayName": "Sim Target User",
+            }
             return {
                 "eventType": "git.pullrequest.merged",
                 "resource": resource,
@@ -89,7 +92,10 @@ def generate_payload(event: str, target_user: str) -> dict:
                 "resource": {
                     "pullRequest": resource,
                     "comment": {
-                        "author": {"id": "commenter-id", "displayName": "Sim Commenter"},
+                        "author": {
+                            "id": "commenter-id",
+                            "displayName": "Sim Commenter",
+                        },
                         "content": "This is a simulated comment.",
                     },
                 },
@@ -198,7 +204,10 @@ def generate_payload(event: str, target_user: str) -> dict:
                     "_links": {"web": {"href": "http://localhost/release/1"}},
                 },
                 "deployment": {
-                    "requestedFor": {"id": target_user, "displayName": "Sim Target User"}
+                    "requestedFor": {
+                        "id": target_user,
+                        "displayName": "Sim Target User",
+                    }
                 },
             }
             return {
