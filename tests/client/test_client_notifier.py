@@ -136,30 +136,20 @@ class TestDisplayWin11Toast:
             _display("Build Failed", "body", "", None, "/icons/failure.png")
 
         call_kwargs = mock_win11.toast.call_args[1]
-        assert "hero" in call_kwargs
-        assert call_kwargs["hero"]["src"] == "/icons/failure.png"
-
-    def test_app_logo_override_passed_when_avatar_provided(self):
-        mock_win11 = MagicMock()
-        with patch.dict("sys.modules", {"win11toast": mock_win11}):
-            importlib.reload(notifier)
-
-            _display("Build Failed", "body", "", "/tmp/avatar.png", None)
-
-        call_kwargs = mock_win11.toast.call_args[1]
-        assert "image" in call_kwargs
-        assert call_kwargs["image"]["placement"] == "appLogoOverride"
+        assert "icon" in call_kwargs
+        assert call_kwargs["icon"] == "/icons/failure.png"
 
     def test_both_hero_and_logo_provided_simultaneously(self):
         mock_win11 = MagicMock()
+        avatar_path = "/tmp/avatar.png"
         with patch.dict("sys.modules", {"win11toast": mock_win11}):
             importlib.reload(notifier)
 
             _display("Title", "body", "", "/tmp/avatar.png", "/icons/success.png")
 
         call_kwargs = mock_win11.toast.call_args[1]
-        assert "hero" in call_kwargs
-        assert "image" in call_kwargs
+        assert "icon" in call_kwargs
+        assert call_kwargs["icon"] == avatar_path
 
     def test_no_on_click_when_no_url(self):
         mock_win11 = MagicMock()
@@ -226,6 +216,7 @@ class TestShowNotification:
         }
 
         with (
+            patch("hermes_client.notifier.is_dark_mode", return_value=True),
             patch("hermes_client.notifier._display") as mock_display,
             patch(
                 "hermes_client.notifier._get_bundled_icon",
@@ -235,7 +226,7 @@ class TestShowNotification:
             show_notification(payload)
 
         _, _, _, avatar, status_img = mock_display.call_args[0]
-        assert status_img == "/icons/success.png"
+        assert status_img == "/icons/succeeded-dark.png"
         assert avatar is None
 
     def test_show_notification_no_avatar_no_status_image(self):

@@ -30,6 +30,7 @@ import uvicorn
 # Local
 from . import __version__
 
+
 # ---------------------------------------------------------------------------
 # run
 # ---------------------------------------------------------------------------
@@ -105,7 +106,7 @@ def _build_simulate_parser(sub):
         "--event",
         default=None,
         metavar="NAME",
-        help="Event type to simulate (omit for interactive menu)",
+        help="Event type to simulate, or 'all' (omit for interactive menu)",
     )
     sim_p.add_argument(
         "--user",
@@ -132,44 +133,64 @@ def _cmd_simulate(args: argparse.Namespace):
     import httpx
 
     # Local
-    from .simulate import EVENTS
+    from .simulate import EVENTS, generate_payload
+
+    # Human-readable descriptions for the CLI menus
+    event_descriptions = {
+        "pr-created": "Simulate opening a new pull request",
+        "pr-merged": "Simulate completing/merging a pull request",
+        "pr-updated": "Simulate updating an active pull request",
+        "pr-comment": "Simulate a new comment on a pull request",
+        "wi-bug": "Simulate creating a Bug work item",
+        "wi-epic": "Simulate creating an Epic work item",
+        "wi-feature": "Simulate creating a Feature work item",
+        "wi-task": "Simulate creating a Task work item",
+        "wi-story": "Simulate creating a User Story work item",
+        "wi-comment": "Simulate commenting on a work item",
+        "build-success": "Simulate a successful CI build",
+        "build-fail": "Simulate a failed CI build",
+        "build-cancel": "Simulate a canceled CI build",
+        "release-created": "Simulate creating a new release",
+        "release-success": "Simulate a successful release deployment",
+        "release-fail": "Simulate a failed release deployment",
+        "release-abandoned": "Simulate abandoning a release",
+        "all": "Fire ALL available simulated events sequentially",
+    }
+
+    options = EVENTS + ["all"]
 
     if args.list:
         print("\nAvailable events:\n")
-        for name, (_, description) in EVENTS.items():
-            print(f"  {name:<26}  {description}")
+        for name in options:
+            desc = event_descriptions.get(name, "")
+            print(f"  {name:<20}  {desc}")
         print()
         return
 
     # Resolve event name — interactive menu if not supplied
     event_name = args.event
     if not event_name:
-        names = list(EVENTS.keys())
         print("\nChoose an event to simulate:\n")
-        for i, (name, (_, description)) in enumerate(EVENTS.items(), 1):
-            print(f"  {i:>2}.  {name:<26}  {description}")
+        for i, name in enumerate(options, 1):
+            desc = event_descriptions.get(name, "")
+            print(f"  {i:>2}.  {name:<20}  {desc}")
         print()
         while True:
             raw = input("  Enter number or event name: ").strip()
-            if raw.isdigit() and 1 <= int(raw) <= len(names):
-                event_name = names[int(raw) - 1]
+            if raw.isdigit() and 1 <= int(raw) <= len(options):
+                event_name = options[int(raw) - 1]
                 break
-            elif raw in EVENTS:
+            elif raw in options:
                 event_name = raw
                 break
-            print(f"  Invalid choice — enter a number 1–{len(names)} or an event name.")
+            print(f"  Invalid choice — enter a number 1–{len(options)} or an event name.")
 
-    if event_name not in EVENTS:
+    if event_name not in options:
         print(f"Unknown event '{event_name}'. Run --list to see available events.")
         sys.exit(1)
 
-    factory, description = EVENTS[event_name]
     user_id = args.user_id or str(uuid.uuid4())
-    user = {
-        "id": user_id,
-        "displayName": args.user,
-        "uniqueName": f"{args.user.lower().replace(' ', '.')}@corp.local",
-    }
+    user_name = args.user
 
     if not args.user_id:
         print(
@@ -179,30 +200,32 @@ def _cmd_simulate(args: argparse.Namespace):
             f"     pass the ADO user ID of your registered client.\n"
         )
 
-    payload = factory(user)
+    # Determine which events to run based on user selection
+    events_to_run = EVENTS if event_name == "all" else [event_name]
     url = f"{args.server.rstrip('/')}/webhooks/ado"
 
-    print(f"\n  Simulating : {event_name}")
-    print(f"  User       : {args.user} ({user_id})")
-    print(f"  Sending to : {url}")
-    print()
+    for ev in events_to_run:
+        payload = generate_payload(ev, user_id)
 
-    try:
-        resp = httpx.post(url, json=payload, timeout=10.0)
-        if resp.status_code == 200:
-            print(f"     Server accepted the webhook ({resp.status_code})")
-            print(f"     Response: {resp.json()}")
-        else:
-            print(f"     Server returned {resp.status_code}: {resp.text}")
-    except httpx.ConnectError:
-        print(f"     Could not connect to {url}")
-        print(f"     Is the server running?  hermes-server run")
-        sys.exit(1)
-    except Exception as e:
-        print(f"     Request failed: {e}")
-        sys.exit(1)
+        print(f"\n  Simulating : {ev}")
+        print(f"  User       : {user_name} ({user_id})")
+        print(f"  Sending to : {url}")
 
-    print()
+        try:
+            resp = httpx.post(url, json=payload, timeout=10.0)
+            if resp.status_code == 200:
+                print(f"     Server accepted the webhook ({resp.status_code})")
+            else:
+                print(f"     Server returned {resp.status_code}: {resp.text}")
+        except httpx.ConnectError:
+            print(f"     Could not connect to {url}")
+            print(f"     Is the server running?  hermes-server run")
+            sys.exit(1)
+        except Exception as e:
+            print(f"     Request failed: {e}")
+            sys.exit(1)
+
+    print("\n  Done.\n")
 
 
 # ---------------------------------------------------------------------------

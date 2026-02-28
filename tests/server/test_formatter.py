@@ -136,13 +136,13 @@ class TestFormatPR:
         )
         assert "author-id" in notif["mentions"]["user_ids"]
 
-    async def test_pr_merged_has_success_status_image(self):
+    async def test_pr_merged_has_pr_merged_status_image(self):
         notif = await self._format("git.pullrequest.merged")
-        assert notif["status_image"] == "success"
+        assert notif["status_image"] == "pr merged"
 
-    async def test_pr_created_has_no_status_image(self):
+    async def test_pr_created_has_new_pr_status_image(self):
         notif = await self._format("git.pullrequest.created")
-        assert notif["status_image"] is None
+        assert notif["status_image"] == "new pr"
 
     async def test_pr_comment_mentions_author_not_commenter(self):
         resource = {
@@ -237,9 +237,9 @@ class TestFormatWorkItem:
         notif = await self._format("workitem.updated")
         assert "assignee-id" in notif["mentions"]["user_ids"]
 
-    async def test_workitem_has_no_status_image(self):
+    async def test_workitem_has_status_image_based_on_type(self):
         notif = await self._format("workitem.created")
-        assert notif["status_image"] is None
+        assert notif["status_image"] == "task"
 
     async def test_unassigned_workitem_has_empty_mentions(self):
         notif = await self._format("workitem.created", {"System.AssignedTo": {}})

@@ -128,7 +128,7 @@ Examples:
         resp = httpx.post(endpoint, json=payload, timeout=10.0)
         resp.raise_for_status()
         result = resp.json()
-        print(f"✓ {result.get('message', 'Sent')}")
+        print(result.get("message", "Sent"))
     except httpx.HTTPStatusError as e:
         print(
             f"ERROR: Server returned {e.response.status_code}: {e.response.text}",

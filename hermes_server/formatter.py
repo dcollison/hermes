@@ -128,6 +128,7 @@ async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
         actor_id = comment_author.get("id")
         body = f"💬 {actor_name} commented on PR #{pr_id}: {title}"
         heading = "PR Comment"
+        status_image = "pr comment"
         mentioned = _mentions(created_by, *reviewers, actor_id=actor_id)
 
     elif event_type == "git.pullrequest.created":
@@ -144,7 +145,7 @@ async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
         actor_id = merged_by.get("id")
         body = f"PR #{pr_id} merged in {repo}\n{title}"
         heading = "PR Merged"
-        status_image = "success"
+        status_image = "pr merged"
         # Notify reviewers, and always include the PR author — even if they
         # were the one who clicked merge — so they know their PR completed.
         mentioned = _mentions(*reviewers, actor_id=actor_id)
@@ -160,6 +161,7 @@ async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
         actor_id = created_by.get("id")
         body = f"PR #{pr_id} updated ({status}): {title}"
         heading = "PR Updated"
+        status_image = "pr updated"
         mentioned = _mentions(*reviewers, actor_id=actor_id)
 
     avatar = await get_user_avatar_b64(actor_id)
@@ -237,6 +239,11 @@ async def _format_workitem(
         if state:
             body += f" [{state}]"
 
+    if event_type == "workitem.commented":
+        status_image = "workitem comment"
+    else:
+        status_image = wi_type.lower()
+
     avatar = await get_user_avatar_b64(actor_id)
     mentioned = _mentions(
         assigned_to_raw if isinstance(assigned_to_raw, dict) else None,
@@ -250,7 +257,7 @@ async def _format_workitem(
         "url": _clean_url(url),
         "project": project,
         "avatar_b64": avatar,
-        "status_image": None,
+        "status_image": status_image,
         "actor": actor_name,
         "actor_id": actor_id,
         "mentions": mentioned,
