@@ -30,19 +30,18 @@ Hermes stores all state in the `data/` directory:
 
 1. **Install dependencies**
    ```bash
-   cd hermes
-   pip install -r requirements-server.txt
+   pip install hermes[server]
    ```
 
 2. **Configure**
    ```bash
-   cp .env.example .env
-   # Edit .env with your ADO server URL and PAT
+   cp .env.example .env.hermes-server
+   # Edit .env.hermes-server with your ADO server URL and PAT
    ```
 
 3. **Run**
    ```bash
-   python run_server.py
+   hermes-server run
    ```
    The server starts on `http://0.0.0.0:8000`. Access the interactive API docs at `http://localhost:8000/docs`.
 
@@ -70,7 +69,7 @@ Hermes stores all state in the `data/` directory:
 
    > All use **API version 5.1-preview** in ADO Server.
 
-   If you want webhook validation, set a shared secret in ADO and add `ADO_WEBHOOK_SECRET=your_secret` to `.env`.
+   If you want webhook validation, set a shared secret in ADO and add `ADO_WEBHOOK_SECRET=your_secret` to `.env.hermes-server`.
 
 ---
 
@@ -78,29 +77,27 @@ Hermes stores all state in the `data/` directory:
 
 1. **Install dependencies**
    ```bash
-   pip install -r requirements-client.txt
+   pip install hermes
    ```
 
 2. **Configure**
+   Run the interactive configuration wizard to generate your `.env.hermes-client` file automatically:
    ```bash
-   cp .env.client.example .env.client
-   # Edit .env.client — especially CALLBACK_URL with your actual LAN IP
+   hermes-client configure
    ```
 
 3. **Run**
    ```bash
-   python run_client.py
+   hermes-client run
    ```
    The client starts a local server on port 9000 and registers with the Hermes server automatically.
 
 4. **Auto-start on login (recommended)**
 
-   Create a shortcut in your Windows Startup folder (`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`) pointing to:
+   Install the background Task Scheduler task to run the client invisibly on Windows logon:
+   ```bash
+   hermes-client startup install
    ```
-   Target: C:\Python311\pythonw.exe C:\hermes\run_client.py
-   Start in: C:\hermes
-   ```
-   Using `pythonw.exe` hides the console window.
 
 ---
 
@@ -109,7 +106,7 @@ Hermes stores all state in the `data/` directory:
 Run the Hermes server as a Windows Service using [NSSM](https://nssm.cc/):
 
 ```bash
-nssm install Hermes "C:\Python311\python.exe" "C:\hermes\run_server.py"
+nssm install Hermes "C:\Python311\Scripts\hermes-server.exe"
 nssm set Hermes AppDirectory "C:\hermes"
 nssm set Hermes AppStdout "C:\hermes\logs\hermes.log"
 nssm set Hermes AppStderr "C:\hermes\logs\hermes-error.log"
@@ -120,9 +117,9 @@ The JSON files in `data/` persist all client registrations and notification logs
 
 ---
 
-## Client Subscriptions & Filters
+## Client Subscriptions
 
-Clients can subscribe to specific event types and apply filters so they only receive relevant notifications.
+Clients can subscribe to specific event types so they only receive relevant notifications. 
 
 ### Subscription types
 
@@ -132,21 +129,10 @@ Clients can subscribe to specific event types and apply filters so they only rec
 | `workitem` | Work item created, updated, commented, resolved, closed |
 | `pipeline` | Build completed, release created/deployed/abandoned     |
 | `manual`   | Manual push notifications from the server               |
-| `all`      | Everything                                              |
 
-### Filters (applied server-side)
-
-```json
-{"project": "MyProject"}
-{"assigned_to": "jane.doe@company.com"}
-{"actor": "john.doe"}
-{"project": "MyProject", "assigned_to": "jane.doe@company.com"}
-```
-
-Set via `.env.client`:
+Set via `.env.hermes-client` (can be updated by rerunning `hermes-client configure`):
 ```env
 SUBSCRIPTIONS=["pr", "workitem", "manual"]
-FILTERS={"project": "MyProject"}
 ```
 
 ---
@@ -194,10 +180,8 @@ curl -X POST http://your-server:8000/notifications/send \
 | `/clients/register`           | POST   | Register a client            |
 | `/clients/`                   | GET    | List all clients             |
 | `/clients/{id}`               | DELETE | Unregister a client          |
-| `/clients/{id}/subscriptions` | PUT    | Update subscriptions/filters |
+| `/clients/{id}/subscriptions` | PUT    | Update subscriptions         |
 | `/notifications/send`         | POST   | Push a manual notification   |
 | `/notifications/logs`         | GET    | View delivery logs           |
 | `/health`                     | GET    | Health check                 |
 | `/docs`                       | GET    | Swagger UI                   |
-
----

@@ -5,11 +5,7 @@ Windows toast notification client for the Hermes Azure DevOps notification syste
 ## Installation
 
 ```powershell
-# Windows 11
-uv tool install "hermes-client[win11]"
-
-# Windows 10
-uv tool install "hermes-client[win10]"
+pip install hermes
 ```
 
 ## Setup (one-time)
@@ -24,7 +20,7 @@ hermes-client configure
 
 Example session:
 
-```
+```text
 ══════════════════════════════════════════════════════════
   Hermes Client — Configuration Wizard
 ══════════════════════════════════════════════════════════
@@ -42,8 +38,8 @@ Example session:
 
 ── Network ─────────────────────────────────────────────────
   Local listener port [9000]:
-  Detected LAN IP: http://192.168.1.42:9000/notify
-  Callback URL: [http://192.168.1.42:9000/notify]:
+  Detected LAN IP: [http://192.168.1.42:9000/notify](http://192.168.1.42:9000/notify)
+  Callback URL: [[http://192.168.1.42:9000/notify](http://192.168.1.42:9000/notify)]:
 
 ── Optional ────────────────────────────────────────────────
   Client display name [ALICE-PC]:
@@ -87,17 +83,17 @@ You never receive notifications for actions you take yourself.
 All settings live in `.env.hermes-client`. Run `hermes-client configure` to
 regenerate it, or edit it by hand:
 
-| Setting | Description |
-|---|---|
-| `SERVER_URL` | Hermes server URL |
-| `CLIENT_NAME` | Display name for this machine |
-| `LOCAL_PORT` | Port the local listener binds to (default: 9000) |
-| `CALLBACK_URL` | URL the server POSTs notifications to (your LAN IP) |
-| `ADO_ORGANIZATION_URL` | Your ADO server collection URL |
-| `ADO_PAT` | Personal Access Token (Identity/Profile read) |
-| `ADO_USER_ID` | Your ADO identity GUID (filled by configure) |
-| `ADO_DISPLAY_NAME` | Your ADO display name (filled by configure) |
-| `SUBSCRIPTIONS` | Event types: pr, workitem, pipeline, manual |
+| Setting                | Description                                         |
+|------------------------|-----------------------------------------------------|
+| `SERVER_URL`           | Hermes server URL                                   |
+| `CLIENT_NAME`          | Display name for this machine                       |
+| `LOCAL_PORT`           | Port the local listener binds to (default: 9000)    |
+| `CALLBACK_URL`         | URL the server POSTs notifications to (your LAN IP) |
+| `ADO_ORGANIZATION_URL` | Your ADO server collection URL                      |
+| `ADO_PAT`              | Personal Access Token (Identity/Profile read)       |
+| `ADO_USER_ID`          | Your ADO identity GUID (filled by configure)        |
+| `ADO_DISPLAY_NAME`     | Your ADO display name (filled by configure)         |
+| `SUBSCRIPTIONS`        | Event types: pr, workitem, pipeline, manual         |
 
 ## Development
 
