@@ -25,26 +25,41 @@ logger = logging.getLogger(__name__)
 
 
 def _mentions(
-    *identity_dicts: dict | None,
+    *identities: dict | str | None,
     actor_id: str | None = None,
 ) -> dict:
-    """Build a mentions dict from ADO identity dicts.
+    """Build a mentions dict from ADO identity dicts or plain strings.
     The actor is excluded so they don't get notified of their own actions.
     """
     user_ids: list[str] = []
     names: list[str] = []
-    seen: set[str] = set()
+    seen_ids: set[str] = set()
+    seen_names: set[str] = set()
 
-    for ident in identity_dicts:
+    for ident in identities:
         if not ident:
             continue
+
+        # Support fallback when ADO sends plain strings instead of identity dicts
+        if isinstance(ident, str):
+            name = ident.strip()
+            if name and name not in seen_names and name != actor_id:
+                seen_names.add(name)
+                names.append(name)
+            continue
+
         uid = ident.get("id") or ident.get("uniqueName", "")
         name = ident.get("displayName", "")
-        if not uid or uid == actor_id or uid in seen:
+
+        if uid and uid == actor_id:
             continue
-        seen.add(uid)
-        user_ids.append(uid)
-        if name:
+
+        if uid and uid not in seen_ids:
+            seen_ids.add(uid)
+            user_ids.append(uid)
+
+        if name and name not in seen_names:
+            seen_names.add(name)
             names.append(name)
 
     return {"user_ids": user_ids, "names": names}
@@ -246,7 +261,7 @@ async def _format_workitem(
 
     avatar = await get_user_avatar_b64(actor_id)
     mentioned = _mentions(
-        assigned_to_raw if isinstance(assigned_to_raw, dict) else None,
+        assigned_to_raw,
         actor_id=actor_id,
     )
 

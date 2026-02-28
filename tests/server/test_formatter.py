@@ -68,6 +68,12 @@ class TestMentions:
         )
         assert result["user_ids"] == ["alice@corp.com"]
 
+    def test_string_identities_parsed_as_names(self):
+        result = self._mentions("Backend Team", {"id": "u1", "displayName": "Alice"})
+        assert "Backend Team" in result["names"]
+        assert "Alice" in result["names"]
+        assert result["user_ids"] == ["u1"]
+
 
 # ---------------------------------------------------------------------------
 # PR events
@@ -244,6 +250,7 @@ class TestFormatWorkItem:
     async def test_unassigned_workitem_has_empty_mentions(self):
         notif = await self._format("workitem.created", {"System.AssignedTo": {}})
         assert notif["mentions"]["user_ids"] == []
+        assert notif["mentions"]["names"] == []
 
     async def test_workitem_url_converted_from_api_to_web(self):
         from hermes_server.formatter import format_webhook

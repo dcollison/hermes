@@ -21,7 +21,7 @@ API_VERSION = "1.0"
 
 # In-process caches (survive for the lifetime of the server process).
 _avatar_cache: dict[str, str] | None = {}
-_group_cache: dict[str, list[str]] = {}
+_group_cache: dict[str, dict[str, list[str]]] = {}
 
 
 def _auth_headers() -> dict:
@@ -61,63 +61,70 @@ async def get_user_avatar_b64(identity_id: str | None) -> str | None:
     return None
 
 
-async def get_user_groups(identity_id: str) -> list[str]:
-    """Return the list of ADO group display names that this user belongs to.
+async def get_user_groups(identity_id: str) -> dict[str, list[str]]:
+    """Return the list of ADO group IDs and display names that this user belongs to.
     Results are cached per user for the lifetime of the process.
 
     Uses the Identities API to expand group memberships:
-        GET /_apis/identities/{id}?queryMembership=Direct
+        GET /_apis/identities/{id}?queryMembership=Expanded
     """
     if not settings.ADO_PAT or not settings.ADO_ORGANIZATION_URL or not identity_id:
-        return []
+        return {"ids": [], "names": []}
 
     if identity_id in _group_cache:
         return _group_cache[identity_id]
 
-    groups: list[str] = []
+    groups_data = {"ids": [], "names": []}
     try:
-        # Step 1: get the identity record with direct membership info
+        # Step 1: get the identity record with expanded nested membership info
         url = f"{settings.ADO_ORGANIZATION_URL.rstrip('/')}/_apis/identities/{identity_id}"
-        params = {"api-version": API_VERSION, "queryMembership": "Direct"}
+        params = {"api-version": API_VERSION, "queryMembership": "Expanded"}
         async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
             resp = await client.get(url, headers=_auth_headers(), params=params)
             if resp.status_code != 200:
-                _group_cache[identity_id] = groups
-                return groups
+                _group_cache[identity_id] = groups_data
+                return groups_data
 
             identity = resp.json()
             member_of_ids: list[str] = identity.get("memberOf", [])
+            groups_data["ids"] = member_of_ids
 
         # Step 2: resolve each group ID to a display name
         if member_of_ids:
-            ids_param = ",".join(member_of_ids)
-            resolve_url = (
-                f"{settings.ADO_ORGANIZATION_URL.rstrip('/')}/_apis/identities"
-            )
-            resolve_params = {
-                "api-version": API_VERSION,
-                "identityIds": ids_param,
-            }
-            async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
-                resp = await client.get(
-                    resolve_url,
-                    headers=_auth_headers(),
-                    params=resolve_params,
+            # Batch requests to avoid URL-too-long errors
+            batch_size = 40
+            for i in range(0, len(member_of_ids), batch_size):
+                batch_ids = member_of_ids[i : i + batch_size]
+                ids_param = ",".join(batch_ids)
+                resolve_url = (
+                    f"{settings.ADO_ORGANIZATION_URL.rstrip('/')}/_apis/identities"
                 )
-                if resp.status_code == 200:
-                    for item in resp.json().get("value", []):
-                        name = item.get("providerDisplayName") or item.get(
-                            "customDisplayName",
-                            "",
-                        )
-                        if name:
-                            groups.append(name)
+                resolve_params = {
+                    "api-version": API_VERSION,
+                    "identityIds": ids_param,
+                }
+                async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
+                    resp = await client.get(
+                        resolve_url,
+                        headers=_auth_headers(),
+                        params=resolve_params,
+                    )
+                    if resp.status_code == 200:
+                        for item in resp.json().get("value", []):
+                            if not item:
+                                continue
+                            name = item.get("providerDisplayName") or item.get(
+                                "customDisplayName",
+                                "",
+                            )
+                            if name:
+                                groups_data["names"].append(name)
 
     except Exception as e:
         logger.debug(f"Group fetch failed for {identity_id}: {e}")
 
-    _group_cache[identity_id] = groups
-    return groups
+    _group_cache[identity_id] = groups_data
+    return groups_data
 
 
 async def get_pr_reviewers(pr_resource: dict) -> list[dict]:

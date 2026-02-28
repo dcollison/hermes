@@ -59,7 +59,7 @@ class TestClientIsRelevant:
     def patch_groups(self):
         with patch(
             "hermes_server.dispatcher.get_user_groups",
-            new=AsyncMock(return_value=[]),
+            new=AsyncMock(return_value={"ids": [], "names": []}),
         ):
             yield
 
@@ -167,7 +167,7 @@ class TestClientIsRelevant:
     async def test_group_member_receives_notification(self):
         with patch(
             "hermes_server.dispatcher.get_user_groups",
-            new=AsyncMock(return_value=["Backend Team"]),
+            new=AsyncMock(return_value={"ids": [], "names": ["Backend Team"]}),
         ):
             assert (
                 await self._check(
@@ -177,10 +177,23 @@ class TestClientIsRelevant:
                 is True
             )
 
+    async def test_group_match_by_id(self):
+        with patch(
+            "hermes_server.dispatcher.get_user_groups",
+            new=AsyncMock(return_value={"ids": ["group-123"], "names": []}),
+        ):
+            assert (
+                await self._check(
+                    _make_client(ado_user_id="user-1"),
+                    _make_notification(mentioned_user_ids=["group-123"]),
+                )
+                is True
+            )
+
     async def test_group_match_is_case_insensitive(self):
         with patch(
             "hermes_server.dispatcher.get_user_groups",
-            new=AsyncMock(return_value=["backend team"]),
+            new=AsyncMock(return_value={"ids": [], "names": ["backend team"]}),
         ):
             assert (
                 await self._check(
@@ -193,7 +206,7 @@ class TestClientIsRelevant:
     async def test_non_group_member_blocked(self):
         with patch(
             "hermes_server.dispatcher.get_user_groups",
-            new=AsyncMock(return_value=["Frontend Team"]),
+            new=AsyncMock(return_value={"ids": [], "names": ["Frontend Team"]}),
         ):
             assert (
                 await self._check(
@@ -204,7 +217,7 @@ class TestClientIsRelevant:
             )
 
     async def test_groups_not_fetched_when_user_id_already_matched(self):
-        mock_groups = AsyncMock(return_value=["Some Group"])
+        mock_groups = AsyncMock(return_value={"ids": [], "names": ["Some Group"]})
         with patch("hermes_server.dispatcher.get_user_groups", new=mock_groups):
             await self._check(
                 _make_client(ado_user_id="user-1"),
@@ -215,14 +228,14 @@ class TestClientIsRelevant:
             )
         mock_groups.assert_not_called()
 
-    async def test_groups_not_fetched_when_no_mentioned_names(self):
-        mock_groups = AsyncMock(return_value=["Backend Team"])
+    async def test_groups_fetched_when_unmatched_user_ids_exist(self):
+        mock_groups = AsyncMock(return_value={"ids": [], "names": ["Backend Team"]})
         with patch("hermes_server.dispatcher.get_user_groups", new=mock_groups):
             await self._check(
                 _make_client(ado_user_id="user-1"),
                 _make_notification(mentioned_user_ids=["user-99"], mentioned_names=[]),
             )
-        mock_groups.assert_not_called()
+        mock_groups.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -235,7 +248,7 @@ class TestDispatch:
     def patch_groups(self):
         with patch(
             "hermes_server.dispatcher.get_user_groups",
-            new=AsyncMock(return_value=[]),
+            new=AsyncMock(return_value={"ids": [], "names": []}),
         ):
             yield
 

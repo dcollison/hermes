@@ -5,6 +5,7 @@ Routing is identity-based: a client receives a notification when:
   2. Any of the following are true:
        - The notification has no specific mentions (broadcast event)
        - The client's ADO user ID appears in notification's mentions.user_ids
+       - Any of the client's ADO group IDs appear in notification's mentions.user_ids
        - Any of the client's ADO group names appear in notification's mentions.names
      AND the client is not the actor who triggered the event (unless explicitly mentioned).
 """
@@ -61,10 +62,19 @@ async def _client_is_relevant(client: dict, notification: dict) -> bool:
         return True
 
     # Group membership match — fetch lazily and cache
-    if client_uid and mentioned_names:
+    if client_uid and (mentioned_names or mentioned_user_ids):
         client_groups = await get_user_groups(client_uid)
-        for group in client_groups:
-            if group.lower() in mentioned_names:
+
+        # Check group IDs
+        client_group_ids = client_groups.get("ids", [])
+        for group_id in client_group_ids:
+            if group_id in mentioned_user_ids:
+                return True
+
+        # Check group names
+        client_group_names = client_groups.get("names", [])
+        for group_name in client_group_names:
+            if group_name.lower() in mentioned_names:
                 return True
 
     return False
