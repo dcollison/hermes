@@ -71,6 +71,7 @@ def register_with_server(settings: ClientSettings, retries: int = 5):
             if attempt < retries:
                 time.sleep(3 * attempt)
     logger.error("Could not register with Hermes server. Notifications may not arrive.")
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -82,13 +83,13 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
     """Prompt the user for input. Shows the default in brackets.
     Masks input for secrets (PATs / passwords).
     """
-    hint = f" [{default}]" if default else ""
+    hint = f" [{default if not secret else '***'}]" if default else ""
     prompt_str = f"  {label}{hint}: "
     if secret:
         # Standard
         import getpass
 
-        value = getpass.getpass(prompt_str)
+        value = getpass.getpass(prompt_str).strip()
     else:
         value = input(prompt_str).strip()
     return value or default
@@ -166,7 +167,7 @@ def _cmd_configure(args: argparse.Namespace):
     print(f"  Detected LAN IP: {auto_callback}")
     settings.CALLBACK_URL = _prompt(
         "Callback URL (the server will POST here)",
-        settings.CALLBACK_URL or auto_callback,
+        auto_callback or settings.CALLBACK_URL,
     )
 
     # --- Optional overrides ---

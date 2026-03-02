@@ -122,50 +122,37 @@ class TestFormatPR:
         assert "reviewer-id" in notif["mentions"]["user_ids"]
 
     async def test_pr_merged_mentions_author_and_reviewers(self):
-        # Carol merges the PR — Alice (author) and Bob (reviewer) should both be notified
+        # In 1.0, PR completes are updated events with status: completed
         notif = await self._format(
-            "git.pullrequest.merged",
+            "git.pullrequest.updated",
             {
-                "closedBy": {"id": "merger-id", "displayName": "Carol"},
+                "status": "completed",
             },
         )
+        # The author and reviewers should all be notified of the merge
         assert "author-id" in notif["mentions"]["user_ids"]
         assert "reviewer-id" in notif["mentions"]["user_ids"]
-        assert "merger-id" not in notif["mentions"]["user_ids"]
-
-    async def test_pr_merged_author_is_merger_still_notified(self):
-        notif = await self._format(
-            "git.pullrequest.merged",
-            {
-                "closedBy": {"id": "author-id", "displayName": "Alice"},
-            },
-        )
-        assert "author-id" in notif["mentions"]["user_ids"]
 
     async def test_pr_merged_has_pr_merged_status_image(self):
-        notif = await self._format("git.pullrequest.merged")
+        notif = await self._format(
+            "git.pullrequest.updated",
+            {"status": "completed"},
+        )
         assert notif["status_image"] == "pr merged"
 
     async def test_pr_created_has_new_pr_status_image(self):
         notif = await self._format("git.pullrequest.created")
         assert notif["status_image"] == "new pr"
 
-    async def test_pr_comment_mentions_author_not_commenter(self):
+    async def test_pr_comment_excludes_commenter(self):
+        # 1.0 comment payload structure
         resource = {
-            "pullRequest": {
-                "pullRequestId": 42,
-                "title": "Add feature X",
-                "status": "active",
-                "repository": {"name": "MyRepo"},
-                "sourceRefName": "refs/heads/feature/x",
-                "targetRefName": "refs/heads/main",
-                "url": "http://ado/pr/42",
-                "createdBy": {"id": "author-id", "displayName": "Alice"},
-                "reviewers": [{"id": "reviewer-id", "displayName": "Bob"}],
-            },
-            "comment": {
-                "author": {"id": "reviewer-id", "displayName": "Bob"},
-                "content": "LGTM",
+            "author": {"id": "commenter-id", "displayName": "Bob"},
+            "content": "LGTM",
+            "_links": {
+                "threads": {
+                    "href": "http://ado/_apis/git/repositories/MyRepo/pullRequests/42/threads/1"
+                }
             },
         }
         from hermes_server.formatter import format_webhook
@@ -179,8 +166,10 @@ class TestFormatPR:
                 "resourceContainers": {"project": {"name": "MyProject"}},
             },
         )
-        assert "author-id" in notif["mentions"]["user_ids"]
-        assert "reviewer-id" not in notif["mentions"]["user_ids"]
+        # Verify the commenter isn't pinged for their own comment
+        assert "commenter-id" not in notif["mentions"]["user_ids"]
+        # Verify PR ID was extracted from links
+        assert "42" in notif["body"]
 
     async def test_unknown_event_returns_none(self):
         from hermes_server.formatter import format_webhook
@@ -224,12 +213,26 @@ class TestFormatWorkItem:
             "System.Title": "Fix the bug",
             "System.State": "Active",
             "System.AssignedTo": {"id": "assignee-id", "displayName": "Carol"},
+            "System.CreatedBy": {"id": "creator-id", "displayName": "Alice"},
             "System.ChangedBy": {"id": "changer-id", "displayName": "Dave"},
         }
         if fields_override:
             fields.update(fields_override)
+
+        resource = {"id": 99, "url": "http://ado/wit/99"}
+
+        # In 1.0, updates put the full object in `revision` and delta in `fields`
+        if event_type == "workitem.updated":
+            resource["revision"] = {"id": 99, "fields": fields.copy()}
+            resource["fields"] = {
+                "System.State": {"newValue": fields.get("System.State")}
+            }
+            resource["revisedBy"] = {"id": "changer-id", "displayName": "Dave"}
+        else:
+            resource["fields"] = fields.copy()
+
         payload = {
-            "resource": {"id": 99, "fields": fields, "url": "http://ado/wit/99"},
+            "resource": resource,
             "resourceContainers": {"project": {"name": "MyProject"}},
         }
         return await format_webhook(event_type, payload)
@@ -237,7 +240,7 @@ class TestFormatWorkItem:
     async def test_created_mentions_assignee_not_creator(self):
         notif = await self._format("workitem.created")
         assert "assignee-id" in notif["mentions"]["user_ids"]
-        assert "changer-id" not in notif["mentions"]["user_ids"]
+        assert "creator-id" not in notif["mentions"]["user_ids"]
 
     async def test_updated_mentions_assignee(self):
         notif = await self._format("workitem.updated")
@@ -269,7 +272,7 @@ class TestFormatWorkItem:
             },
             "resourceContainers": {},
         }
-        notif = await format_webhook("workitem.updated", payload)
+        notif = await format_webhook("workitem.created", payload)
         assert "/_apis/" not in notif["url"]
         assert "/_workitems/edit/" in notif["url"]
 
@@ -280,39 +283,44 @@ class TestFormatWorkItem:
 
 
 class TestFormatPipeline:
-    def _build_payload(self, result, requested_for=None):
+    def _build_payload(self, status, requested_for=None):
         return {
             "resource": {
                 "id": 1,
                 "buildNumber": "20260101.1",
-                "result": result,
+                "status": status,
                 "definition": {"name": "CI Pipeline"},
-                "requestedFor": requested_for
-                or {"id": "user-id", "displayName": "Alice"},
+                # 1.0 puts requestor inside a requests array
+                "requests": [
+                    {
+                        "requestedFor": requested_for
+                        or {"id": "user-id", "displayName": "Alice"}
+                    }
+                ],
                 "_links": {"web": {"href": "http://ado/build/1"}},
             },
             "resourceContainers": {"project": {"name": "MyProject"}},
         }
 
-    async def _format_build(self, result, requested_for=None):
+    async def _format_build(self, status, requested_for=None):
         from hermes_server.formatter import format_webhook
 
         return await format_webhook(
             "build.complete",
-            self._build_payload(result, requested_for),
+            self._build_payload(status, requested_for),
         )
 
     @pytest.mark.parametrize(
-        "result,expected_image",
+        "status,expected_image",
         [
             ("succeeded", "success"),
             ("failed", "failure"),
-            ("canceled", "cancelled"),
+            ("cancelled", "cancelled"),
             ("partiallysucceeded", "failure"),
         ],
     )
-    async def test_build_status_image(self, result, expected_image):
-        notif = await self._format_build(result)
+    async def test_build_status_image(self, status, expected_image):
+        notif = await self._format_build(status)
         assert notif["status_image"] == expected_image
 
     async def test_build_notifies_triggerer(self):

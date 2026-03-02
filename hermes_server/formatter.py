@@ -1,14 +1,14 @@
-"""Hermes Formatter - Converts Azure DevOps 5.1-preview webhook payloads
+"""Hermes Formatter - Converts Azure DevOps 1.0 webhook payloads
 into structured toast notification objects.
 
 Every notification includes a `mentions` dict:
-  {
+{
     "user_ids":  ["<ado-identity-id>", ...],
     "names":     ["Alice Smith", ...],
-  }
+}
 
 Pipeline and PR-complete notifications also include a `status_image` field:
-  "success" | "failure" | "cancelled" | None
+    "success" | "failure" | "cancelled" | None
 
 The dispatcher uses mentions to decide which clients receive each notification.
 The actor is excluded from mentions for all events EXCEPT PR merged, where the
@@ -116,68 +116,79 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
 
 
 async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
-    pr = (
-        resource
-        if "pullRequestId" in resource
-        else resource.get("pullRequest", resource)
-    )
-
-    pr_id = pr.get("pullRequestId", "")
-    title = pr.get("title", "Pull Request")
-    repo = pr.get("repository", {}).get("name", "")
-    source = pr.get("sourceRefName", "").replace("refs/heads/", "")
-    target = pr.get("targetRefName", "").replace("refs/heads/", "")
-    url = (
-        pr.get("url")
-        or pr.get("remoteUrl")
-        or pr.get("_links", {}).get("web", {}).get("href", "")
-    )
-    status = pr.get("status", "")
-    created_by = pr.get("createdBy", {})
-    reviewers: list[dict] = pr.get("reviewers", [])
-    status_image = None
-
+    # In 1.0 Comment event, the resource is the comment itself
     if event_type == "ms.vss-code.git-pullrequest-comment-event":
-        comment_author = resource.get("comment", {}).get("author", {})
+        comment_author = resource.get("author", {})
         actor_name = comment_author.get("displayName", "Someone")
         actor_id = comment_author.get("id")
-        body = f"💬 {actor_name} commented on PR #{pr_id}: {title}"
+
+        # Extract PR ID from the threads reference link
+        threads_href = resource.get("_links", {}).get("threads", {}).get("href", "")
+        pr_id = ""
+        if threads_href and "pullRequests/" in threads_href:
+            pr_id = threads_href.split("pullRequests/")[1].split("/")[0]
+
+        title = "Pull Request"
+        repo = ""
+        status = ""
+        url = resource.get("_links", {}).get("self", {}).get("href", "")
+
+        body = f"💬 {actor_name} commented on PR #{pr_id}"
         heading = "PR Comment"
         status_image = "pr comment"
-        mentioned = _mentions(created_by, *reviewers, actor_id=actor_id)
+        mentioned = _mentions(actor_id=actor_id)
 
-    elif event_type == "git.pullrequest.created":
-        actor_name = created_by.get("displayName", "Someone")
-        actor_id = created_by.get("id")
-        body = f"{actor_name} opened PR #{pr_id} in {repo}\n{source} → {target}"
-        heading = "New Pull Request"
-        status_image = "new pr"
-        mentioned = _mentions(*reviewers, actor_id=actor_id)
+    else:
+        pr = resource
+        pr_id = pr.get("pullRequestId", "")
+        title = pr.get("title", "Pull Request")
+        repo = pr.get("repository", {}).get("name", "")
+        source = pr.get("sourceRefName", "").replace("refs/heads/", "")
+        target = pr.get("targetRefName", "").replace("refs/heads/", "")
+        url = (
+            pr.get("url")
+            or pr.get("remoteUrl")
+            or pr.get("_links", {}).get("web", {}).get("href", "")
+        )
+        status = pr.get("status", "")
+        created_by = pr.get("createdBy", {})
+        reviewers: list[dict] = pr.get("reviewers", [])
 
-    elif event_type == "git.pullrequest.merged":
-        merged_by = resource.get("closedBy", created_by)
-        actor_name = merged_by.get("displayName", "Someone")
-        actor_id = merged_by.get("id")
-        body = f"PR #{pr_id} merged in {repo}\n{title}"
-        heading = "PR Merged"
-        status_image = "pr merged"
-        # Notify reviewers, and always include the PR author — even if they
-        # were the one who clicked merge — so they know their PR completed.
-        mentioned = _mentions(*reviewers, actor_id=actor_id)
-        author_id = created_by.get("id")
-        if author_id and author_id not in mentioned["user_ids"]:
-            mentioned["user_ids"].append(author_id)
-            author_name = created_by.get("displayName", "")
-            if author_name and author_name not in mentioned["names"]:
-                mentioned["names"].append(author_name)
+        # In 1.0, merges are sent as updated events with a completed status
+        if event_type == "git.pullrequest.updated" and status == "completed":
+            event_type = "git.pullrequest.merged"
 
-    else:  # updated
-        actor_name = created_by.get("displayName", "Someone")
-        actor_id = created_by.get("id")
-        body = f"PR #{pr_id} updated ({status}): {title}"
-        heading = "PR Updated"
-        status_image = "pr updated"
-        mentioned = _mentions(*reviewers, actor_id=actor_id)
+        if event_type == "git.pullrequest.created":
+            actor_name = created_by.get("displayName", "Someone")
+            actor_id = created_by.get("id")
+            body = f"{actor_name} opened PR #{pr_id} in {repo}\n{source} → {target}"
+            heading = "New Pull Request"
+            status_image = "new pr"
+            mentioned = _mentions(*reviewers, actor_id=actor_id)
+
+        elif event_type == "git.pullrequest.merged":
+            actor_name = created_by.get("displayName", "Someone")
+            actor_id = created_by.get("id")
+            body = f"PR #{pr_id} merged in {repo}\n{title}"
+            heading = "PR Merged"
+            status_image = "pr merged"
+            # Notify reviewers, and always include the PR author — even if they
+            # were the one who clicked merge — so they know their PR completed.
+            mentioned = _mentions(*reviewers, actor_id=actor_id)
+            author_id = created_by.get("id")
+            if author_id and author_id not in mentioned["user_ids"]:
+                mentioned["user_ids"].append(author_id)
+                author_name = created_by.get("displayName", "")
+                if author_name and author_name not in mentioned["names"]:
+                    mentioned["names"].append(author_name)
+
+        else:
+            actor_name = created_by.get("displayName", "Someone")
+            actor_id = created_by.get("id")
+            body = f"PR #{pr_id} updated ({status}): {title}"
+            heading = "PR Updated"
+            status_image = "pr updated"
+            mentioned = _mentions(*reviewers, actor_id=actor_id)
 
     avatar = await get_user_avatar_b64(actor_id)
 
@@ -211,8 +222,15 @@ async def _format_workitem(
     project: str,
     payload: dict,
 ) -> dict:
-    fields = resource.get("fields", {})
-    wi_id = resource.get("id", "")
+
+    wi_resource = (
+        resource.get("revision", resource)
+        if event_type == "workitem.updated"
+        else resource
+    )
+
+    fields = wi_resource.get("fields", {})
+    wi_id = wi_resource.get("id", resource.get("id", ""))
     wi_type = fields.get("System.WorkItemType", "Work Item")
     wi_title = fields.get("System.Title", "Untitled")
 
@@ -223,7 +241,13 @@ async def _format_workitem(
         else str(assigned_to_raw or "")
     )
 
-    changed_by_raw = fields.get("System.ChangedBy", {})
+    if event_type == "workitem.updated":
+        changed_by_raw = resource.get("revisedBy", {})
+    else:
+        changed_by_raw = fields.get(
+            "System.ChangedBy", fields.get("System.CreatedBy", {})
+        )
+
     actor_name = (
         changed_by_raw.get("displayName")
         if isinstance(changed_by_raw, dict)
@@ -231,11 +255,22 @@ async def _format_workitem(
     )
     actor_id = changed_by_raw.get("id") if isinstance(changed_by_raw, dict) else None
 
-    url = resource.get("url", "")
+    url = wi_resource.get("url", "")
     if "/_apis/" in url:
         url = url.replace("/_apis/wit/workItems/", "/_workitems/edit/")
+        url = url.split("/revisions/")[0]
+        url = url.split("/updates/")[0]
 
     state = fields.get("System.State", "")
+
+    if event_type == "workitem.updated":
+        changed_fields = resource.get("fields", {})
+        if "System.State" in changed_fields:
+            state_change = changed_fields["System.State"]
+            if isinstance(state_change, dict) and "newValue" in state_change:
+                state = state_change["newValue"]
+                if state.lower() in ("resolved", "closed", "done"):
+                    event_type = f"workitem.{state.lower()}"
 
     if event_type == "workitem.created":
         heading = f"New {wi_type}"
@@ -245,7 +280,7 @@ async def _format_workitem(
     elif event_type == "workitem.commented":
         heading = f"{wi_type} Comment"
         body = f"{actor_name} commented on {wi_type} #{wi_id}: {wi_title}"
-    elif event_type in ("workitem.resolved", "workitem.closed"):
+    elif event_type in ("workitem.resolved", "workitem.closed", "workitem.done"):
         heading = f"{wi_type} {state}"
         body = f"{actor_name} {state.lower()} {wi_type} #{wi_id}: {wi_title}"
     else:
@@ -315,8 +350,12 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         build_id = resource.get("id", "")
         build_num = resource.get("buildNumber", str(build_id))
         definition = resource.get("definition", {}).get("name", "Pipeline")
-        result = resource.get("result", "unknown").lower()
-        requested_for = resource.get("requestedFor", {})
+
+        result = resource.get("status", "unknown").lower()
+
+        requests = resource.get("requests", [])
+        requested_for = requests[0].get("requestedFor", {}) if requests else {}
+
         actor_name = requested_for.get("displayName", "Someone")
         actor_id = requested_for.get("id")
         url = resource.get("_links", {}).get("web", {}).get("href") or resource.get(

@@ -43,7 +43,7 @@ def _send(payload: dict, url: str):
 
 
 def generate_payload(event: str, target_user: str) -> dict:
-    """Generate a fake ADO webhook payload for a given event type."""
+    """Generate a fake ADO 1.0 webhook payload for a given event type."""
     project = {"name": "Simulated Project"}
     resource_containers = {"project": project}
 
@@ -68,14 +68,15 @@ def generate_payload(event: str, target_user: str) -> dict:
                 "resourceContainers": resource_containers,
             }
         elif event == "pr-merged":
-            resource["closedBy"] = {"id": "merger-id", "displayName": "Sim Merger"}
+            # In 1.0, merges are represented as 'updated' events with 'status': 'completed'
+            resource["status"] = "completed"
             # Make the target user the PR author so they receive the merge notification
             resource["createdBy"] = {
                 "id": target_user,
                 "displayName": "Sim Target User",
             }
             return {
-                "eventType": "git.pullrequest.merged",
+                "eventType": "git.pullrequest.updated",
                 "resource": resource,
                 "resourceContainers": resource_containers,
             }
@@ -87,16 +88,19 @@ def generate_payload(event: str, target_user: str) -> dict:
                 "resourceContainers": resource_containers,
             }
         elif event == "pr-comment":
+            # 1.0 Comment resource is the comment itself, PR ID is in the links
             return {
                 "eventType": "ms.vss-code.git-pullrequest-comment-event",
                 "resource": {
-                    "pullRequest": resource,
-                    "comment": {
-                        "author": {
-                            "id": "commenter-id",
-                            "displayName": "Sim Commenter",
-                        },
-                        "content": "This is a simulated comment.",
+                    "author": {
+                        "id": "commenter-id",
+                        "displayName": "Sim Commenter",
+                    },
+                    "content": "This is a simulated comment.",
+                    "_links": {
+                        "threads": {
+                            "href": "http://localhost/_apis/git/repositories/sim-repo/pullRequests/1234/threads/1"
+                        }
                     },
                 },
                 "resourceContainers": resource_containers,
@@ -146,7 +150,7 @@ def generate_payload(event: str, target_user: str) -> dict:
     # Pipelines / Builds
     # -----------------------------------------------------------------------
     elif event.startswith("build-"):
-        result_map = {
+        status_map = {
             "build-success": "succeeded",
             "build-fail": "failed",
             "build-cancel": "canceled",
@@ -154,9 +158,11 @@ def generate_payload(event: str, target_user: str) -> dict:
         resource = {
             "id": 9012,
             "buildNumber": "20260228.1",
-            "result": result_map[event],
+            "status": status_map[event],  # 1.0 uses 'status' instead of 'result'
             "definition": {"name": "Simulated Pipeline"},
-            "requestedFor": {"id": target_user, "displayName": "Sim Target User"},
+            "requests": [  # 1.0 places the requestor in the requests array
+                {"requestedFor": {"id": target_user, "displayName": "Sim Target User"}}
+            ],
             "_links": {"web": {"href": "http://localhost/build/9012"}},
         }
         return {
