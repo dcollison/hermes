@@ -110,12 +110,23 @@ class TestClientIsRelevant:
     # --- actor suppression ---
 
     async def test_actor_does_not_receive_own_event(self):
+        # Leave mentions empty, or mention someone else
+        assert (
+            await self._check(
+                _make_client(ado_user_id="user-1"),
+                _make_notification(actor_id="user-1", mentioned_user_ids=["user-2"]),
+            )
+            is False
+        )
+
+    async def test_actor_receives_own_event_if_explicitly_mentioned(self):
+        # This covers the exception rule for PR completions / build finishes
         assert (
             await self._check(
                 _make_client(ado_user_id="user-1"),
                 _make_notification(actor_id="user-1", mentioned_user_ids=["user-1"]),
             )
-            is False
+            is True
         )
 
     async def test_other_user_not_suppressed_by_actor(self):

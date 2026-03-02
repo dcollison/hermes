@@ -1,0 +1,20 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Container diagram for Hermes
+
+Person(dev, "Developer", "A software developer using Windows")
+System_Ext(ado, "Azure DevOps", "Source control, CI/CD")
+
+System_Boundary(hermes, "Hermes System") {
+    Container(server, "Hermes Server", "Python, FastAPI", "Receives webhooks, processes events, and manages the client registry.")
+    ContainerDb(db, "File Storage", "File System", "Stores client registrations and notification logs (clients.json, notifications.log).")
+    Container(client, "Hermes Client", "Python, FastAPI, win11toast", "Runs on the developer machine. Listens for server pushes and triggers OS notifications.")
+}
+
+Rel(ado, server, "Sends webhooks to", "JSON/HTTP")
+Rel(server, db, "Reads/Writes", "JSON/NDJSON")
+Rel(client, server, "Registers with", "HTTP POST")
+Rel(server, client, "Pushes notifications to", "HTTP POST")
+Rel(client, dev, "Shows desktop toast to", "Windows API")
+@enduml

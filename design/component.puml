@@ -1,0 +1,27 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Component diagram for Hermes Server
+
+Container_Ext(client, "Hermes Client", "Python", "Developer machine agent")
+System_Ext(ado, "Azure DevOps", "External ADO API")
+ContainerDb_Ext(db, "File Storage", "File System", "data/ directory")
+
+Container_Boundary(server, "Hermes Server") {
+    Component(webhooks_api, "Webhooks API", "FastAPI Router", "Receives and validates ADO webhooks")
+    Component(clients_api, "Clients API", "FastAPI Router", "Handles client registration/unregistration")
+    Component(dispatcher, "Dispatcher", "Python Module", "Determines which clients should receive a notification based on subscriptions/filters")
+    Component(formatter, "Formatter", "Python Module", "Formats the raw ADO JSON payload into a Hermes Notification object")
+    Component(ado_client, "ADO Client", "Python Module", "Fetches user profile avatars")
+    Component(database, "Database", "Python Module", "Manages async locking and file I/O for state persistence")
+}
+
+Rel(webhooks_api, dispatcher, "Passes raw event to")
+Rel(dispatcher, formatter, "Uses to format message")
+Rel(dispatcher, ado_client, "Uses to fetch avatars via", "HTTP")
+Rel(ado_client, ado, "Fetches profile image", "HTTP GET")
+Rel(clients_api, database, "Saves/removes clients to")
+Rel(dispatcher, database, "Looks up clients & writes delivery logs")
+Rel(database, db, "Reads/Writes files")
+Rel(dispatcher, client, "Pushes notification payload to", "HTTP POST")
+@enduml

@@ -1,0 +1,13 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title System Context diagram for Hermes
+
+Person(dev, "Developer", "A software developer using Windows")
+System_Ext(ado, "Azure DevOps", "Source control, work tracking, and CI/CD pipelines")
+System(hermes, "Hermes System", "Routes Azure DevOps events to desktop notifications")
+
+Rel(ado, hermes, "Sends event webhooks to")
+Rel(hermes, dev, "Displays Windows toast notifications to")
+Rel(dev, ado, "Manages code and work items in")
+@enduml
