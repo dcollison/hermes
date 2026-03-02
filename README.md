@@ -1,3 +1,5 @@
+![image](hermes_client/icons/hermes.png)
+
 # Hermes
 
 > Azure DevOps → Windows Toast Notifications
