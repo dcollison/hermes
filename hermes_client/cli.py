@@ -15,10 +15,6 @@ from . import __version__
 from .config import ClientSettings, default_env_file_path
 from .notifier import show_notification
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
 logger = logging.getLogger("hermes.client")
 
 
@@ -252,6 +248,14 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
 
 def _cmd_run(args: argparse.Namespace):
     settings = _resolve_runtime_settings(args)
+    log_level = getattr(args, "log_level", "info")
+
+    # Configure the standard Python logger dynamically
+    logging.basicConfig(
+        level=log_level.upper(),
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        force=True,
+    )
 
     logger.info(
         f"Starting Hermes client '{settings.CLIENT_NAME}' "
@@ -333,6 +337,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ado-display-name",
         metavar="NAME",
         help="Override ADO display name",
+    )
+    run_p.add_argument(
+        "--log-level",
+        default="info",
+        choices=["debug", "info", "warning", "error", "critical"],
+        help="Console log level (default: info)",
     )
 
     # startup

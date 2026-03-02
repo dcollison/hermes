@@ -22,6 +22,7 @@ Simulate options:
 
 # Standard
 import argparse
+import logging
 import sys
 
 # Remote
@@ -66,6 +67,13 @@ def _cmd_run(args: argparse.Namespace):
     host = args.host or settings.HOST
     port = args.port or settings.PORT
     log_level = args.log_level or "info"
+
+    # Configure the standard Python logger
+    logging.basicConfig(
+        level=log_level.upper(),
+        format="%(levelname)-9s %(name)s - %(message)s",
+    )
+
     uvicorn.run(
         "hermes_server.main:app",
         host=host,
