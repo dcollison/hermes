@@ -34,8 +34,7 @@ def _verify_secret(body: bytes, signature: str | None) -> bool:
 
 
 def _append_to_jsonl(data: dict):
-    """Synchronous file write to be run in a thread.
-    """
+    """Synchronous file write to be run in a thread."""
     try:
         log_path = Path(settings.DATA_DIR) / "webhooks.jsonl"
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -46,8 +45,7 @@ def _append_to_jsonl(data: dict):
 
 
 async def _log_webhook(payload: dict, event_type: str):
-    """Log the raw webhook payload to a JSONL file in the background.
-    """
+    """Log the raw webhook payload to a JSONL file in the background."""
     if not settings.LOG_RAW_WEBHOOKS:
         return
 

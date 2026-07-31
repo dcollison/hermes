@@ -14,7 +14,8 @@ def resolve_identity(ado_url: str, pat: str) -> dict:
     client (GET profiles/me), instead of a raw connectionData call.
     """
     connection = Connection(
-        base_url=ado_url.rstrip("/"), creds=BasicAuthentication("", pat),
+        base_url=ado_url.rstrip("/"),
+        creds=BasicAuthentication("", pat),
     )
     profile_client = connection.clients.get_profile_client()
     profile = profile_client.get_profile(id="me")

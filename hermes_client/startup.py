@@ -98,8 +98,7 @@ def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
 
 
 def install():
-    """Register the Hermes client as a Task Scheduler logon task.
-    """
+    """Register the Hermes client as a Task Scheduler logon task."""
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         sys.exit(1)
@@ -140,8 +139,7 @@ def install():
 
 
 def remove():
-    """Remove the Hermes client startup task.
-    """
+    """Remove the Hermes client startup task."""
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         sys.exit(1)
@@ -154,8 +152,7 @@ def remove():
 
 
 def status():
-    """Print whether the startup task exists and is enabled.
-    """
+    """Print whether the startup task exists and is enabled."""
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         return

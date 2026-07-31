@@ -22,7 +22,10 @@ from .simulate import EVENTS, generate_payload
 def _build_run_parser(sub):
     run_p = sub.add_parser("run", help="Start the server")
     run_p.add_argument(
-        "--host", default=None, metavar="HOST", help="Bind host (default: 0.0.0.0)",
+        "--host",
+        default=None,
+        metavar="HOST",
+        help="Bind host (default: 0.0.0.0)",
     )
     run_p.add_argument(
         "--port",
@@ -32,7 +35,9 @@ def _build_run_parser(sub):
         help="Bind port (default: 8000)",
     )
     run_p.add_argument(
-        "--reload", action="store_true", help="Enable auto-reload (development only)",
+        "--reload",
+        action="store_true",
+        help="Enable auto-reload (development only)",
     )
     run_p.add_argument(
         "--log-level",
@@ -111,7 +116,9 @@ def _build_simulate_parser(sub):
         help="ADO user ID — must match a registered client to trigger routing",
     )
     sim_p.add_argument(
-        "--list", action="store_true", help="List all available event names and exit",
+        "--list",
+        action="store_true",
+        help="List all available event names and exit",
     )
 
 
@@ -223,7 +230,9 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--version", action="version", version=f"hermes-server {__version__}",
+        "--version",
+        action="version",
+        version=f"hermes-server {__version__}",
     )
 
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")

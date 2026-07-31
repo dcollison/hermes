@@ -106,6 +106,5 @@ async def get_notification_logs(
     event_type: str | None = None,
     client_id: str | None = None,
 ):
-    """View recent notification delivery logs.
-    """
+    """View recent notification delivery logs."""
     return await get_logs(limit=limit, event_type=event_type, client_id=client_id)

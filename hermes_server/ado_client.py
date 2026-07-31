@@ -98,11 +98,14 @@ async def get_user_groups(identity_id: str) -> dict[str, list[str]]:
         for i in range(0, len(groups_data["ids"]), batch_size):
             batch = ",".join(groups_data["ids"][i : i + batch_size])
             resolved = await asyncio.to_thread(
-                client.read_identities, identity_ids=batch,
+                client.read_identities,
+                identity_ids=batch,
             )
             for item in resolved or []:
                 name = getattr(item, "provider_display_name", None) or getattr(
-                    item, "custom_display_name", None,
+                    item,
+                    "custom_display_name",
+                    None,
                 )
                 if name:
                     groups_data["names"].append(name)

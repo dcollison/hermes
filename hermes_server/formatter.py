@@ -78,7 +78,8 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
         resource = payload.get("resource", {})
         resource_containers = payload.get("resourceContainers", {})
         project = resource_containers.get("project", {}).get("name") or resource.get(
-            "teamProject", "",
+            "teamProject",
+            "",
         )
 
         if event_type in (
@@ -133,7 +134,10 @@ _PR_STATUS_IMAGES = {
 
 
 async def _format_pr(
-    event_type: str, resource: dict, project: str, payload: dict,
+    event_type: str,
+    resource: dict,
+    project: str,
+    payload: dict,
 ) -> dict:
     if event_type == "ms.vss-code.git-pullrequest-comment-event":
         pr = resource.get("pullRequest", {})
@@ -161,7 +165,7 @@ async def _format_pr(
         author_id = created_by.get("id")
         if author_id and author_id not in mentioned["user_ids"]:
             mentioned["user_ids"].append(author_id)
-            author_name = created_by.get("displayName", "")
+            author_name = created_by.get("displayName")
             if author_name and author_name not in mentioned["names"]:
                 mentioned["names"].append(author_name)
     elif event_type == "ms.vss-code.git-pullrequest-comment-event":
@@ -203,7 +207,10 @@ async def _format_pr(
 
 
 async def _format_workitem(
-    event_type: str, resource: dict, project: str, payload: dict,
+    event_type: str,
+    resource: dict,
+    project: str,
+    payload: dict,
 ) -> dict:
     wi_resource = (
         resource.get("revision", resource)
@@ -226,7 +233,8 @@ async def _format_workitem(
         changed_by_raw = resource.get("revisedBy", {})
     else:
         changed_by_raw = fields.get(
-            "System.ChangedBy", fields.get("System.CreatedBy", {}),
+            "System.ChangedBy",
+            fields.get("System.CreatedBy", {}),
         )
 
     actor_name = (
@@ -311,7 +319,10 @@ _DEPLOY_STATUS_IMAGE = {
 
 
 async def _format_pipeline(
-    event_type: str, resource: dict, project: str, payload: dict,
+    event_type: str,
+    resource: dict,
+    project: str,
+    payload: dict,
 ) -> dict:
     actor_id: str | None = None
     status_image: str | None = None
@@ -362,7 +373,8 @@ async def _format_pipeline(
         actor_name = requested_for.get("displayName", "Someone")
         actor_id = requested_for.get("id")
         url = link or resource.get("release", {}).get("_links", {}).get("web", {}).get(
-            "href", "",
+            "href",
+            "",
         )
         heading = f"Deployment {deploy_status.title()}"
         default_body = f"{rel_name} → {env_name}: {deploy_status}"

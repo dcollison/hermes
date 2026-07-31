@@ -66,8 +66,7 @@ class ClientSettings(BaseSettings):
     }
 
     def is_fully_configured(self) -> bool:
-        """True when all required runtime fields are present.
-        """
+        """True when all required runtime fields are present."""
         return bool(
             self.SERVER_URL
             and self.CALLBACK_URL
