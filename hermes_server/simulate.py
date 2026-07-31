@@ -37,9 +37,9 @@ def _send(payload: dict, url: str):
     )
     try:
         with urllib.request.urlopen(req) as resp:
-            print(f"✅ Successfully sent to {url} (Status: {resp.status})")
+            print(f"Successfully sent to {url} (Status: {resp.status})")
     except URLError as e:
-        print(f"❌ Failed to connect to {url}: {e}")
+        print(f"Failed to connect to {url}: {e}")
 
 
 def generate_payload(event: str, target_user: str) -> dict:

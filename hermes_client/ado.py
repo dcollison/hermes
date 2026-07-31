@@ -20,9 +20,10 @@ def _auth_headers(pat: str) -> dict:
 
 
 def resolve_identity(ado_url: str, pat: str) -> dict:
-    """Call /_apis/connectionData with the given PAT and return a dict with:
-      user_id      — ADO identity GUID
-      display_name — ADO display name
+    """
+    Call /_apis/connectionData with the given PAT and return a dict with:
+        user_id      — ADO identity GUID
+        display_name — ADO display name
 
     Raises httpx.HTTPStatusError on auth failure or network error so the
     caller can show a clear message.
@@ -56,7 +57,8 @@ def resolve_identity(ado_url: str, pat: str) -> dict:
 
 
 def resolve_callback_url(port: int) -> str:
-    """Return the best available LAN IP for this machine formatted as a callback URL.
+    """
+    Return the best available LAN IP for this machine formatted as a callback URL.
 
     Uses a UDP connect trick to find the IP the OS would use when talking to
     an external host — this avoids returning 127.0.0.1 or the wrong interface
@@ -64,7 +66,7 @@ def resolve_callback_url(port: int) -> str:
     """
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            # Doesn't actually send anything — just lets the OS pick a source IP
+            # Doesn't actually send anything, just lets the OS pick a source IP
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
     except Exception:

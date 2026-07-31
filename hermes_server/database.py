@@ -1,19 +1,3 @@
-"""Hermes Store - Persistent storage using plain JSON/log files.
-
-Two files are maintained in the data directory:
-  clients.json        — registered client records (JSON dict keyed by ID)
-  notifications.log   — delivery log; one JSON object per line (NDJSON),
-                        automatically rotated when the file reaches
-                        LOG_MAX_BYTES (default 5 MB). Up to LOG_BACKUP_COUNT
-                        (default 3) rolled files are kept alongside it:
-                          notifications.log.1  ← most recent rolled file
-                          notifications.log.2
-                          notifications.log.3  ← oldest
-
-All reads and writes are protected by an asyncio lock so concurrent
-webhook dispatches don't corrupt the files.
-"""
-
 # Standard
 import asyncio
 import json

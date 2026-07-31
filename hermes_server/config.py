@@ -51,6 +51,9 @@ class Settings(BaseSettings):
         5_242_880  # Rotate notifications.log at this size (default: 5 MB)
     )
     LOG_BACKUP_COUNT: int = 3  # Number of rolled log files to keep
+    LOG_RAW_WEBHOOKS: bool = (
+        True  # Whether to log the received webhook payloads from ADO to JSONL
+    )
 
     # Server public URL (used in setup instructions and health endpoint)
     SERVER_PUBLIC_URL: str = "http://localhost:8000"

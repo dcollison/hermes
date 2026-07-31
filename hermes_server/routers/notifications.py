@@ -35,7 +35,8 @@ class ManualNotificationResponse(BaseModel):
 
 @router.post("/send", response_model=ManualNotificationResponse)
 async def send_manual_notification(body: ManualNotificationRequest):
-    """Push a manual notification to all active clients subscribed to 'manual' or 'all'.
+    """
+    Push a manual notification to all active clients subscribed to 'manual' or 'all'.
     Use the notify.py CLI script for a friendlier interface.
     """
     clients = await get_all_clients()

@@ -1,15 +1,3 @@
-"""Hermes Dispatcher - Sends formatted notifications to registered clients.
-
-Routing is identity-based: a client receives a notification when:
-  1. The event type is in their subscription list, AND
-  2. Any of the following are true:
-       - The notification has no specific mentions (broadcast event)
-       - The client's ADO user ID appears in notification's mentions.user_ids
-       - Any of the client's ADO group IDs appear in notification's mentions.user_ids
-       - Any of the client's ADO group names appear in notification's mentions.names
-     AND the client is not the actor who triggered the event (unless explicitly mentioned).
-"""
-
 # Standard
 import asyncio
 import logging

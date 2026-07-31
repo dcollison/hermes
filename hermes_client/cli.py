@@ -1,5 +1,7 @@
 # Standard
 import argparse
+import getpass
+import os
 import logging
 import threading
 import time
@@ -11,7 +13,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 # Local
-from . import __version__
+from . import __version__, startup
+from .ado import resolve_callback_url, resolve_identity
 from .config import ClientSettings, default_env_file_path
 from .notifier import show_notification
 
@@ -82,9 +85,6 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
     hint = f" [{default if not secret else '***'}]" if default else ""
     prompt_str = f"  {label}{hint}: "
     if secret:
-        # Standard
-        import getpass
-
         value = getpass.getpass(prompt_str).strip()
     else:
         value = input(prompt_str).strip()
@@ -92,11 +92,10 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
 
 
 def _cmd_configure(args: argparse.Namespace):
-    """Interactive wizard that resolves the user's ADO identity via their PAT
+    """
+    Interactive wizard that resolves the user's ADO identity via their PAT
     and writes a complete .env.hermes-client config file.
     """
-    # Local
-    from .ado import resolve_callback_url, resolve_identity
 
     # Load whatever exists already so we can offer it as defaults
     settings = ClientSettings()
@@ -175,7 +174,7 @@ def _cmd_configure(args: argparse.Namespace):
     print()
     target = default_env_file_path()
     written = settings.write_env_file(target)
-    print(f"✓ Configuration saved to: {written}")
+    print(f"  Configuration saved to: {written}")
     print()
     print("  Next steps:")
     print("    hermes-client run               — start the client now")
@@ -189,7 +188,8 @@ def _cmd_configure(args: argparse.Namespace):
 
 
 def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
-    """Load settings from the env file, apply any CLI overrides, then
+    """
+    Load settings from the env file, apply any CLI overrides, then
     auto-resolve missing CALLBACK_URL / ADO identity if we have a PAT.
     """
     # Local
@@ -247,6 +247,9 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
 
 
 def _cmd_run(args: argparse.Namespace):
+    if os.name == "nt":
+        os.system("")
+
     settings = _resolve_runtime_settings(args)
     log_level = getattr(args, "log_level", "info")
 
@@ -287,9 +290,6 @@ def _cmd_run(args: argparse.Namespace):
 
 
 def _cmd_startup(args: argparse.Namespace):
-    # Local
-    from . import startup
-
     {"install": startup.install, "remove": startup.remove, "status": startup.status}[
         args.startup_command
     ]()

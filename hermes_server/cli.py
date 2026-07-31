@@ -1,35 +1,18 @@
-"""
-Hermes Server CLI — `hermes-server` console script.
-
-Subcommands
------------
-  hermes-server run                  Start the webhook receiver and notification dispatcher
-  hermes-server simulate             Fire a fake ADO webhook at a running server
-
-Run options (all also readable from .env.hermes-server):
-  --host HOST       Bind host            (default: 0.0.0.0)
-  --port PORT       Bind port            (default: 8000)
-  --reload          Enable auto-reload   (development only)
-  --log-level LVL   Uvicorn log level    (default: info)
-
-Simulate options:
-  --server URL      Server to send the fake webhook to  (default: http://localhost:8000)
-  --event NAME      Event type to simulate              (default: interactive menu)
-  --user NAME       Display name of the acting user     (default: Your Name)
-  --user-id GUID    ADO user ID of the acting user      (default: a random GUID)
-  --list            Print all available event names and exit
-"""
-
 # Standard
 import argparse
 import logging
+import os
 import sys
+import uuid
 
 # Remote
+import httpx
 import uvicorn
 
 # Local
 from . import __version__
+from .config import settings
+from .simulate import EVENTS, generate_payload
 
 # ---------------------------------------------------------------------------
 # run
@@ -61,8 +44,8 @@ def _build_run_parser(sub):
 
 
 def _cmd_run(args: argparse.Namespace):
-    # Local
-    from .config import settings
+    if os.name == "nt":
+        os.system("")
 
     host = args.host or settings.HOST
     port = args.port or settings.PORT
@@ -133,15 +116,6 @@ def _build_simulate_parser(sub):
 
 
 def _cmd_simulate(args: argparse.Namespace):
-    # Standard
-    import uuid
-
-    # Remote
-    import httpx
-
-    # Local
-    from .simulate import EVENTS, generate_payload
-
     # Human-readable descriptions for the CLI menus
     event_descriptions = {
         "pr-created": "Simulate opening a new pull request",

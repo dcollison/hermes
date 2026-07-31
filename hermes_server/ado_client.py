@@ -1,10 +1,3 @@
-"""Azure DevOps API helpers.
-Targets ADO Server with API version 1.0.
-
-Caches avatar images and group memberships in-process so repeated webhook
-events for the same users don't hammer the ADO API.
-"""
-
 # Standard
 import base64
 import logging

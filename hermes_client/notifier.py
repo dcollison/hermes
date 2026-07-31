@@ -40,7 +40,9 @@ _STATUS_ICONS = {
 
 
 def is_dark_mode() -> bool:
-    """Detect if Windows 11 is in dark mode."""
+    """
+    Detect if Windows 11 is in dark mode.
+    """
     if not winreg:
         return True
     try:
@@ -56,7 +58,9 @@ def is_dark_mode() -> bool:
 
 
 def _get_icon_filename(status_image_key: str | None) -> str | None:
-    """Resolve a status key to a theme-aware icon filename."""
+    """
+    Resolve a status key to a theme-aware icon filename.
+    """
     if not status_image_key:
         return None
 
@@ -124,7 +128,7 @@ def _display(
         toast(
             heading,
             body,
-            on_click=_on_click if url else None,
+            on_click=_on_click if url else print,
             app_id=__app_id__,
             **kwargs,
         )

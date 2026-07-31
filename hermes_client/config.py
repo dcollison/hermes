@@ -68,7 +68,9 @@ class ClientSettings(BaseSettings):
     }
 
     def is_fully_configured(self) -> bool:
-        """True when all required runtime fields are present."""
+        """
+        True when all required runtime fields are present.
+        """
         return bool(
             self.SERVER_URL
             and self.CALLBACK_URL
@@ -77,7 +79,8 @@ class ClientSettings(BaseSettings):
         )
 
     def write_env_file(self, path: Path | None = None) -> Path:
-        """Write current settings to an .env.hermes-client file.
+        """
+        Write current settings to an .env.hermes-client file.
         Creates the file (and parent directories) if it doesn't exist.
         """
         target = path or default_env_file_path()

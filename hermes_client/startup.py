@@ -1,21 +1,3 @@
-"""Hermes Client — Windows startup integration via Task Scheduler.
-
-Uses Windows Task Scheduler rather than the Startup folder so the task:
-  - Runs hidden (no console window) using pythonw.exe
-  - Survives Python upgrades — the task stores absolute paths captured at
-    install time, so `hermes-client startup install` should be re-run after
-    upgrading or reinstalling the package
-  - Is scoped to the current user only (no admin rights required)
-  - Works whether the package was installed with `uv tool install`,
-    `uv pip install`, or plain `pip install`
-
-Commands
---------
-  hermes-client startup install   — register the scheduled task
-  hermes-client startup remove    — delete the scheduled task
-  hermes-client startup status    — show whether the task exists and is enabled
-"""
-
 # Standard
 import os
 import subprocess
@@ -29,7 +11,8 @@ TASK_DESCRIPTION = "Hermes — Azure DevOps notification client"
 
 
 def _resolve_paths() -> tuple[str, str]:
-    """Return (pythonw_path, script_path) for use in the Task Scheduler command.
+    """
+    Return (pythonw_path, script_path) for use in the Task Scheduler command.
 
     uv installs console scripts as .exe wrappers that embed the full path to
     the venv's Python, so we don't need to locate Python separately — we just
@@ -64,7 +47,8 @@ def _resolve_paths() -> tuple[str, str]:
 
 
 def _build_task_xml(pythonw: str, script: str) -> str:
-    """Generate a Task Scheduler XML definition.
+    """
+    Generate a Task Scheduler XML definition.
 
     The task calls:
         pythonw.exe "<path-to-hermes-client.exe>"
@@ -116,7 +100,9 @@ def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
 
 
 def install():
-    """Register the Hermes client as a Task Scheduler logon task."""
+    """
+    Register the Hermes client as a Task Scheduler logon task.
+    """
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         sys.exit(1)
@@ -157,7 +143,9 @@ def install():
 
 
 def remove():
-    """Remove the Hermes client startup task."""
+    """
+    Remove the Hermes client startup task.
+    """
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         sys.exit(1)
@@ -170,7 +158,9 @@ def remove():
 
 
 def status():
-    """Print whether the startup task exists and is enabled."""
+    """
+    Print whether the startup task exists and is enabled.
+    """
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         return

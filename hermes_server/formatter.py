@@ -1,20 +1,3 @@
-"""Hermes Formatter - Converts Azure DevOps 1.0 webhook payloads
-into structured toast notification objects.
-
-Every notification includes a `mentions` dict:
-{
-    "user_ids":  ["<ado-identity-id>", ...],
-    "names":     ["Alice Smith", ...],
-}
-
-Pipeline and PR-complete notifications also include a `status_image` field:
-    "success" | "failure" | "cancelled" | None
-
-The dispatcher uses mentions to decide which clients receive each notification.
-The actor is excluded from mentions for all events EXCEPT PR merged, where the
-PR author is always included so they are notified when their own PR completes.
-"""
-
 # Standard
 import logging
 
@@ -25,10 +8,11 @@ logger = logging.getLogger(__name__)
 
 
 def _mentions(
-    *identities: dict | str | None,
+    *identities: dict | list[str] | None,
     actor_id: str | None = None,
 ) -> dict:
-    """Build a mentions dict from ADO identity dicts or plain strings.
+    """
+    Build a mentions dict from ADO identity dicts or plain strings.
     The actor is excluded so they don't get notified of their own actions.
     """
     user_ids: list[str] = []
@@ -116,43 +100,29 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
 
 
 async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
-    # In 1.0 Comment event, the resource is the comment itself
+    # Extract common PR data first
+    # In comment events, the PR object is nested differently or available via reference
     if event_type == "ms.vss-code.git-pullrequest-comment-event":
-        comment_author = resource.get("author", {})
-        actor_name = comment_author.get("displayName", "Someone")
-        actor_id = comment_author.get("id")
-
-        # Extract PR ID from the threads reference link
-        threads_href = resource.get("_links", {}).get("threads", {}).get("href", "")
-        pr_id = ""
-        if threads_href and "pullRequests/" in threads_href:
-            pr_id = threads_href.split("pullRequests/")[1].split("/")[0]
-
-        title = "Pull Request"
-        repo = ""
-        status = ""
-        url = resource.get("_links", {}).get("self", {}).get("href", "")
-
-        body = f"💬 {actor_name} commented on PR #{pr_id}"
-        heading = "PR Comment"
-        status_image = "pr comment"
-        mentioned = _mentions(actor_id=actor_id)
-
+        pr = resource.get("pullRequest", {})
     else:
         pr = resource
-        pr_id = pr.get("pullRequestId", "")
-        title = pr.get("title", "Pull Request")
-        repo = pr.get("repository", {}).get("name", "")
-        source = pr.get("sourceRefName", "").replace("refs/heads/", "")
-        target = pr.get("targetRefName", "").replace("refs/heads/", "")
-        url = (
-            pr.get("url")
-            or pr.get("remoteUrl")
-            or pr.get("_links", {}).get("web", {}).get("href", "")
-        )
-        status = pr.get("status", "")
-        created_by = pr.get("createdBy", {})
-        reviewers: list[dict] = pr.get("reviewers", [])
+
+    pr_id = pr.get("pullRequestId", resource.get("pullRequestId", ""))
+    title = pr.get("title", "Pull Request")
+    repo = pr.get("repository", {}).get("name", "")
+
+
+
+    source = pr.get("sourceRefName", "").replace("refs/heads/", "")
+    target = pr.get("targetRefName", "").replace("refs/heads/", "")
+    url = (
+        pr.get("url")
+        or pr.get("remoteUrl")
+        or pr.get("_links", {}).get("web", {}).get("href", "")
+    )
+    status = pr.get("status", "")
+    created_by = pr.get("createdBy", {})
+    reviewers: list[dict] = pr.get("reviewers", [])
 
         # In 1.0, merges are sent as updated events with a completed status
         if event_type == "git.pullrequest.updated" and status == "completed":
