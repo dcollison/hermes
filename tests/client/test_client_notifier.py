@@ -159,7 +159,7 @@ class TestDisplayWin11Toast:
             _display("Title", "body", "", None, None)
 
         call_kwargs = mock_win11.toast.call_args[1]
-        assert call_kwargs.get("on_click") is None
+        assert call_kwargs.get("on_click") is print
 
 
 # ---------------------------------------------------------------------------

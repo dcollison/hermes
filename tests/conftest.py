@@ -18,11 +18,9 @@ from hermes_server.main import app
 
 @pytest.fixture
 def tmp_data_dir(tmp_path):
-    """
-    Point the database module at a fresh temp directory for each test.
+    """Point the database module at a fresh temp directory for each test.
     Resets module-level globals that cache file paths.
     """
-
     clients_file = str(tmp_path / "clients.json")
     log_file = str(tmp_path / "notifications.log")
 

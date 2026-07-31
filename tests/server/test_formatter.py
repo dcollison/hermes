@@ -151,8 +151,8 @@ class TestFormatPR:
             "content": "LGTM",
             "_links": {
                 "threads": {
-                    "href": "http://ado/_apis/git/repositories/MyRepo/pullRequests/42/threads/1"
-                }
+                    "href": "http://ado/_apis/git/repositories/MyRepo/pullRequests/42/threads/1",
+                },
             },
         }
         from hermes_server.formatter import format_webhook
@@ -225,7 +225,7 @@ class TestFormatWorkItem:
         if event_type == "workitem.updated":
             resource["revision"] = {"id": 99, "fields": fields.copy()}
             resource["fields"] = {
-                "System.State": {"newValue": fields.get("System.State")}
+                "System.State": {"newValue": fields.get("System.State")},
             }
             resource["revisedBy"] = {"id": "changer-id", "displayName": "Dave"}
         else:
@@ -294,8 +294,8 @@ class TestFormatPipeline:
                 "requests": [
                     {
                         "requestedFor": requested_for
-                        or {"id": "user-id", "displayName": "Alice"}
-                    }
+                        or {"id": "user-id", "displayName": "Alice"},
+                    },
                 ],
                 "_links": {"web": {"href": "http://ado/build/1"}},
             },

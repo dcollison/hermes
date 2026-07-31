@@ -22,7 +22,6 @@ async def client(tmp_path):
     """Async httpx client wrapping the FastAPI app, with the database
     pointed at a fresh temp directory for each test.
     """
-
     clients_file = str(tmp_path / "clients.json")
     log_file = str(tmp_path / "notifications.log")
 

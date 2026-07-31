@@ -40,8 +40,7 @@ _STATUS_ICONS = {
 
 
 def is_dark_mode() -> bool:
-    """
-    Detect if Windows 11 is in dark mode.
+    """Detect if Windows 11 is in dark mode.
     """
     if not winreg:
         return True
@@ -58,8 +57,7 @@ def is_dark_mode() -> bool:
 
 
 def _get_icon_filename(status_image_key: str | None) -> str | None:
-    """
-    Resolve a status key to a theme-aware icon filename.
+    """Resolve a status key to a theme-aware icon filename.
     """
     if not status_image_key:
         return None
@@ -74,8 +72,7 @@ def _get_icon_filename(status_image_key: str | None) -> str | None:
 
 
 def show_notification(payload: dict):
-    """
-    Display a Windows toast notification from a Hermes payload.
+    """Display a Windows toast notification from a Hermes payload.
     """
     heading = payload.get("heading", __app_name__)
     body = payload.get("body", "")
@@ -139,8 +136,7 @@ def _display(
 
 
 def _save_b64_image(b64: str) -> str | None:
-    """
-    Decode a base64 data URI and write it to a temp file.
+    """Decode a base64 data URI and write it to a temp file.
     :returns: The path.
     """
     try:
@@ -161,8 +157,7 @@ def _save_b64_image(b64: str) -> str | None:
 
 
 def _get_bundled_icon(filename: str | None) -> str | None:
-    """
-    Return the filesystem path to a bundled icon, or None if not found.
+    """Return the filesystem path to a bundled icon, or None if not found.
     """
     if not filename:
         return None

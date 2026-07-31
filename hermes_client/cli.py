@@ -1,8 +1,8 @@
 # Standard
 import argparse
 import getpass
-import os
 import logging
+import os
 import threading
 import time
 
@@ -92,11 +92,9 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
 
 
 def _cmd_configure(args: argparse.Namespace):
-    """
-    Interactive wizard that resolves the user's ADO identity via their PAT
+    """Interactive wizard that resolves the user's ADO identity via their PAT
     and writes a complete .env.hermes-client config file.
     """
-
     # Load whatever exists already so we can offer it as defaults
     settings = ClientSettings()
 
@@ -188,8 +186,7 @@ def _cmd_configure(args: argparse.Namespace):
 
 
 def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
-    """
-    Load settings from the env file, apply any CLI overrides, then
+    """Load settings from the env file, apply any CLI overrides, then
     auto-resolve missing CALLBACK_URL / ADO identity if we have a PAT.
     """
     # Local

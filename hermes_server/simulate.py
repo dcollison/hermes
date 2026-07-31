@@ -67,7 +67,7 @@ def generate_payload(event: str, target_user: str) -> dict:
                 "resource": resource,
                 "resourceContainers": resource_containers,
             }
-        elif event == "pr-merged":
+        if event == "pr-merged":
             # In 1.0, merges are represented as 'updated' events with 'status': 'completed'
             resource["status"] = "completed"
             # Make the target user the PR author so they receive the merge notification
@@ -80,14 +80,14 @@ def generate_payload(event: str, target_user: str) -> dict:
                 "resource": resource,
                 "resourceContainers": resource_containers,
             }
-        elif event == "pr-updated":
+        if event == "pr-updated":
             resource["status"] = "active"
             return {
                 "eventType": "git.pullrequest.updated",
                 "resource": resource,
                 "resourceContainers": resource_containers,
             }
-        elif event == "pr-comment":
+        if event == "pr-comment":
             # 1.0 Comment resource is the comment itself, PR ID is in the links
             return {
                 "eventType": "ms.vss-code.git-pullrequest-comment-event",
@@ -99,8 +99,8 @@ def generate_payload(event: str, target_user: str) -> dict:
                     "content": "This is a simulated comment.",
                     "_links": {
                         "threads": {
-                            "href": "http://localhost/_apis/git/repositories/sim-repo/pullRequests/1234/threads/1"
-                        }
+                            "href": "http://localhost/_apis/git/repositories/sim-repo/pullRequests/1234/threads/1",
+                        },
                     },
                 },
                 "resourceContainers": resource_containers,
@@ -139,12 +139,11 @@ def generate_payload(event: str, target_user: str) -> dict:
                 "resource": resource,
                 "resourceContainers": resource_containers,
             }
-        else:
-            return {
-                "eventType": "workitem.created",
-                "resource": resource,
-                "resourceContainers": resource_containers,
-            }
+        return {
+            "eventType": "workitem.created",
+            "resource": resource,
+            "resourceContainers": resource_containers,
+        }
 
     # -----------------------------------------------------------------------
     # Pipelines / Builds
@@ -161,7 +160,7 @@ def generate_payload(event: str, target_user: str) -> dict:
             "status": status_map[event],  # 1.0 uses 'status' instead of 'result'
             "definition": {"name": "Simulated Pipeline"},
             "requests": [  # 1.0 places the requestor in the requests array
-                {"requestedFor": {"id": target_user, "displayName": "Sim Target User"}}
+                {"requestedFor": {"id": target_user, "displayName": "Sim Target User"}},
             ],
             "_links": {"web": {"href": "http://localhost/build/9012"}},
         }
@@ -186,7 +185,7 @@ def generate_payload(event: str, target_user: str) -> dict:
                 "resource": resource,
                 "resourceContainers": resource_containers,
             }
-        elif event == "release-created":
+        if event == "release-created":
             resource = {
                 "name": "Sim-Release-1",
                 "releaseDefinition": {"name": "Main release"},
@@ -198,29 +197,28 @@ def generate_payload(event: str, target_user: str) -> dict:
                 "resource": resource,
                 "resourceContainers": resource_containers,
             }
-        else:
-            status_map = {
-                "release-success": "succeeded",
-                "release-fail": "failed",
-            }
-            resource = {
-                "environment": {"name": "Production", "status": status_map[event]},
-                "release": {
-                    "name": "Sim-Release-1",
-                    "_links": {"web": {"href": "http://localhost/release/1"}},
+        status_map = {
+            "release-success": "succeeded",
+            "release-fail": "failed",
+        }
+        resource = {
+            "environment": {"name": "Production", "status": status_map[event]},
+            "release": {
+                "name": "Sim-Release-1",
+                "_links": {"web": {"href": "http://localhost/release/1"}},
+            },
+            "deployment": {
+                "requestedFor": {
+                    "id": target_user,
+                    "displayName": "Sim Target User",
                 },
-                "deployment": {
-                    "requestedFor": {
-                        "id": target_user,
-                        "displayName": "Sim Target User",
-                    }
-                },
-            }
-            return {
-                "eventType": "ms.vss-release.deployment-completed-event",
-                "resource": resource,
-                "resourceContainers": resource_containers,
-            }
+            },
+        }
+        return {
+            "eventType": "ms.vss-release.deployment-completed-event",
+            "resource": resource,
+            "resourceContainers": resource_containers,
+        }
 
     raise ValueError(f"Unknown event type: {event}")
 

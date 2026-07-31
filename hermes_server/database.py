@@ -9,12 +9,13 @@ from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
+# Local
+from .config import settings as _settings
+
 # ---------------------------------------------------------------------------
 # Paths & tunable constants
 # ---------------------------------------------------------------------------
 
-# Local
-from .config import settings as _settings
 
 DATA_DIR = _settings.DATA_DIR
 CLIENTS_FILE = os.path.join(DATA_DIR, "clients.json")

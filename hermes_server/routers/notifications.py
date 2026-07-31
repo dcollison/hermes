@@ -35,8 +35,7 @@ class ManualNotificationResponse(BaseModel):
 
 @router.post("/send", response_model=ManualNotificationResponse)
 async def send_manual_notification(body: ManualNotificationRequest):
-    """
-    Push a manual notification to all active clients subscribed to 'manual' or 'all'.
+    """Push a manual notification to all active clients subscribed to 'manual' or 'all'.
     Use the notify.py CLI script for a friendlier interface.
     """
     clients = await get_all_clients()
@@ -107,7 +106,6 @@ async def get_notification_logs(
     event_type: str | None = None,
     client_id: str | None = None,
 ):
-    """
-    View recent notification delivery logs.
+    """View recent notification delivery logs.
     """
     return await get_logs(limit=limit, event_type=event_type, client_id=client_id)

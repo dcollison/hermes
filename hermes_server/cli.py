@@ -22,7 +22,7 @@ from .simulate import EVENTS, generate_payload
 def _build_run_parser(sub):
     run_p = sub.add_parser("run", help="Start the server")
     run_p.add_argument(
-        "--host", default=None, metavar="HOST", help="Bind host (default: 0.0.0.0)"
+        "--host", default=None, metavar="HOST", help="Bind host (default: 0.0.0.0)",
     )
     run_p.add_argument(
         "--port",
@@ -32,7 +32,7 @@ def _build_run_parser(sub):
         help="Bind port (default: 8000)",
     )
     run_p.add_argument(
-        "--reload", action="store_true", help="Enable auto-reload (development only)"
+        "--reload", action="store_true", help="Enable auto-reload (development only)",
     )
     run_p.add_argument(
         "--log-level",
@@ -111,7 +111,7 @@ def _build_simulate_parser(sub):
         help="ADO user ID — must match a registered client to trigger routing",
     )
     sim_p.add_argument(
-        "--list", action="store_true", help="List all available event names and exit"
+        "--list", action="store_true", help="List all available event names and exit",
     )
 
 
@@ -161,11 +161,11 @@ def _cmd_simulate(args: argparse.Namespace):
             if raw.isdigit() and 1 <= int(raw) <= len(options):
                 event_name = options[int(raw) - 1]
                 break
-            elif raw in options:
+            if raw in options:
                 event_name = raw
                 break
             print(
-                f"  Invalid choice — enter a number 1–{len(options)} or an event name."
+                f"  Invalid choice — enter a number 1–{len(options)} or an event name.",
             )
 
     if event_name not in options:
@@ -180,7 +180,7 @@ def _cmd_simulate(args: argparse.Namespace):
             f"\n   No --user-id supplied. Using random ID: {user_id}\n"
             f"     This notification will broadcast to all subscribed clients\n"
             f"     rather than routing by mention. To test mention routing,\n"
-            f"     pass the ADO user ID of your registered client.\n"
+            f"     pass the ADO user ID of your registered client.\n",
         )
 
     # Determine which events to run based on user selection
@@ -202,7 +202,7 @@ def _cmd_simulate(args: argparse.Namespace):
                 print(f"     Server returned {resp.status_code}: {resp.text}")
         except httpx.ConnectError:
             print(f"     Could not connect to {url}")
-            print(f"     Is the server running?  hermes-server run")
+            print("     Is the server running?  hermes-server run")
             sys.exit(1)
         except Exception as e:
             print(f"     Request failed: {e}")
@@ -223,7 +223,7 @@ def _build_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--version", action="version", version=f"hermes-server {__version__}"
+        "--version", action="version", version=f"hermes-server {__version__}",
     )
 
     sub = parser.add_subparsers(dest="command", metavar="COMMAND")

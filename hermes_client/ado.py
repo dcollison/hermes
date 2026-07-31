@@ -1,52 +1,26 @@
 # Standard
-import base64
 import logging
 import socket
 
 # Remote
-import httpx
+from azure.devops.connection import Connection
+from msrest.authentication import BasicAuthentication
 
 logger = logging.getLogger("hermes.client.ado")
 
-API_VERSION = "1.0"
-
-
-def _auth_headers(pat: str) -> dict:
-    token = base64.b64encode(f":{pat}".encode()).decode()
-    return {
-        "Authorization": f"Basic {token}",
-        "Accept": "application/json",
-    }
-
 
 def resolve_identity(ado_url: str, pat: str) -> dict:
+    """Resolve the caller's ADO identity via the azure-devops SDK's profile
+    client (GET profiles/me), instead of a raw connectionData call.
     """
-    Call /_apis/connectionData with the given PAT and return a dict with:
-        user_id      — ADO identity GUID
-        display_name — ADO display name
-
-    Raises httpx.HTTPStatusError on auth failure or network error so the
-    caller can show a clear message.
-    """
-    url = f"{ado_url.rstrip('/')}/_apis/connectionData"
-    resp = httpx.get(
-        url,
-        headers=_auth_headers(pat),
-        params={"api-version": API_VERSION},
-        timeout=10.0,
-        verify=False,
+    connection = Connection(
+        base_url=ado_url.rstrip("/"), creds=BasicAuthentication("", pat),
     )
-    resp.raise_for_status()
-    data = resp.json()
+    profile_client = connection.clients.get_profile_client()
+    profile = profile_client.get_profile(id="me")
 
-    user = data.get("authenticatedUser", {})
-    user_id = user.get("id", "")
-    # ADO Server returns the display name under providerDisplayName
-    display_name = (
-        user.get("providerDisplayName")
-        or user.get("customDisplayName")
-        or user.get("subjectDescriptor", "")
-    )
+    user_id = getattr(profile, "id", "") or ""
+    display_name = getattr(profile, "display_name", "") or ""
 
     if not user_id:
         raise ValueError(
@@ -57,16 +31,8 @@ def resolve_identity(ado_url: str, pat: str) -> dict:
 
 
 def resolve_callback_url(port: int) -> str:
-    """
-    Return the best available LAN IP for this machine formatted as a callback URL.
-
-    Uses a UDP connect trick to find the IP the OS would use when talking to
-    an external host — this avoids returning 127.0.0.1 or the wrong interface
-    on multi-homed machines.
-    """
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            # Doesn't actually send anything, just lets the OS pick a source IP
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
     except Exception:

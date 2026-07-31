@@ -100,7 +100,7 @@ async def _send(client: dict, notification: dict):
     except Exception as e:
         success = False
         error_msg = str(e)
-        logger.warning(f"Failed to notify client '{client['name']}': {repr(e)}")
+        logger.warning(f"Failed to notify client '{client['name']}': {e!r}")
 
     await append_log(
         make_log_entry(

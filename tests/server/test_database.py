@@ -169,7 +169,7 @@ class TestNotificationLog:
     def _entry(self, event_type="pr", client_id="c1", success=True):
 
         return db_module.make_log_entry(
-            client_id, event_type, {"test": True}, success, None
+            client_id, event_type, {"test": True}, success, None,
         )
 
     async def test_append_and_retrieve_log(self, db):

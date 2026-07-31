@@ -1,18 +1,40 @@
 # Standard
 import logging
+import re
 
 # Local
 from .ado_client import get_user_avatar_b64
 
 logger = logging.getLogger(__name__)
 
+_HTML_HREF_RE = re.compile(r'href="([^"]+)"')
+_MD_LINK_RE = re.compile(r"\((https?://[^\s)]+)\)")
+
+
+def _extract_message(payload: dict) -> tuple[str, str]:
+    """Pull the human-readable text straight from ADO's own "message" block
+    instead of hand-building it, and try to recover a link from the html
+    or markdown variant. Falls back to detailedMessage if message is absent.
+    Returns (text, link) — link is "" if none could be found.
+    """
+    msg = payload.get("message") or payload.get("detailedMessage") or {}
+    text = (msg.get("text") or "").strip()
+
+    link = ""
+    html = msg.get("html", "")
+    md = msg.get("markdown", "")
+    m = _HTML_HREF_RE.search(html)
+    if m or (m := _MD_LINK_RE.search(md)):
+        link = m.group(1)
+
+    return text, link
+
 
 def _mentions(
     *identities: dict | list[str] | None,
     actor_id: str | None = None,
 ) -> dict:
-    """
-    Build a mentions dict from ADO identity dicts or plain strings.
+    """Build a mentions dict from ADO identity dicts or plain strings.
     The actor is excluded so they don't get notified of their own actions.
     """
     user_ids: list[str] = []
@@ -24,7 +46,6 @@ def _mentions(
         if not ident:
             continue
 
-        # Support fallback when ADO sends plain strings instead of identity dicts
         if isinstance(ident, str):
             name = ident.strip()
             if name and name not in seen_names and name != actor_id:
@@ -57,8 +78,7 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
         resource = payload.get("resource", {})
         resource_containers = payload.get("resourceContainers", {})
         project = resource_containers.get("project", {}).get("name") or resource.get(
-            "teamProject",
-            "",
+            "teamProject", "",
         )
 
         if event_type in (
@@ -67,7 +87,7 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
             "git.pullrequest.merged",
             "ms.vss-code.git-pullrequest-comment-event",
         ):
-            return await _format_pr(event_type, resource, project)
+            return await _format_pr(event_type, resource, project, payload)
 
         if event_type in (
             "workitem.created",
@@ -84,7 +104,7 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
             "ms.vss-release.deployment-completed-event",
             "ms.vss-release.release-abandoned-event",
         ):
-            return await _format_pipeline(event_type, resource, project)
+            return await _format_pipeline(event_type, resource, project, payload)
 
         logger.debug(f"Unhandled event type: {event_type}")
         return None
@@ -98,84 +118,80 @@ async def format_webhook(event_type: str, payload: dict) -> dict | None:
 # Pull Request
 # ---------------------------------------------------------------------------
 
+_PR_HEADINGS = {
+    "git.pullrequest.created": "New Pull Request",
+    "git.pullrequest.updated": "PR Updated",
+    "git.pullrequest.merged": "PR Merged",
+    "ms.vss-code.git-pullrequest-comment-event": "PR Comment",
+}
+_PR_STATUS_IMAGES = {
+    "git.pullrequest.created": "new pr",
+    "git.pullrequest.updated": "pr updated",
+    "git.pullrequest.merged": "pr merged",
+    "ms.vss-code.git-pullrequest-comment-event": "pr comment",
+}
 
-async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
-    # Extract common PR data first
-    # In comment events, the PR object is nested differently or available via reference
+
+async def _format_pr(
+    event_type: str, resource: dict, project: str, payload: dict,
+) -> dict:
     if event_type == "ms.vss-code.git-pullrequest-comment-event":
         pr = resource.get("pullRequest", {})
+        actor = resource.get("author", {})
     else:
         pr = resource
+        actor = pr.get("createdBy", {})
 
     pr_id = pr.get("pullRequestId", resource.get("pullRequestId", ""))
-    title = pr.get("title", "Pull Request")
-    repo = pr.get("repository", {}).get("name", "")
-
-
-
-    source = pr.get("sourceRefName", "").replace("refs/heads/", "")
-    target = pr.get("targetRefName", "").replace("refs/heads/", "")
-    url = (
-        pr.get("url")
-        or pr.get("remoteUrl")
-        or pr.get("_links", {}).get("web", {}).get("href", "")
-    )
     status = pr.get("status", "")
     created_by = pr.get("createdBy", {})
     reviewers: list[dict] = pr.get("reviewers", [])
 
-        # In 1.0, merges are sent as updated events with a completed status
-        if event_type == "git.pullrequest.updated" and status == "completed":
-            event_type = "git.pullrequest.merged"
+    # In 1.0, merges are sent as `updated` events with status: completed
+    if event_type == "git.pullrequest.updated" and status == "completed":
+        event_type = "git.pullrequest.merged"
 
-        if event_type == "git.pullrequest.created":
-            actor_name = created_by.get("displayName", "Someone")
-            actor_id = created_by.get("id")
-            body = f"{actor_name} opened PR #{pr_id} in {repo}\n{source} → {target}"
-            heading = "New Pull Request"
-            status_image = "new pr"
-            mentioned = _mentions(*reviewers, actor_id=actor_id)
+    actor_id = actor.get("id")
+    actor_name = actor.get("displayName", "Someone")
 
-        elif event_type == "git.pullrequest.merged":
-            actor_name = created_by.get("displayName", "Someone")
-            actor_id = created_by.get("id")
-            body = f"PR #{pr_id} merged in {repo}\n{title}"
-            heading = "PR Merged"
-            status_image = "pr merged"
-            # Notify reviewers, and always include the PR author — even if they
-            # were the one who clicked merge — so they know their PR completed.
-            mentioned = _mentions(*reviewers, actor_id=actor_id)
-            author_id = created_by.get("id")
-            if author_id and author_id not in mentioned["user_ids"]:
-                mentioned["user_ids"].append(author_id)
-                author_name = created_by.get("displayName", "")
-                if author_name and author_name not in mentioned["names"]:
-                    mentioned["names"].append(author_name)
+    if event_type == "git.pullrequest.merged":
+        # Notify reviewers AND the author — even if the author is the one
+        # who clicked merge, they still want the confirmation.
+        mentioned = _mentions(*reviewers, actor_id=actor_id)
+        author_id = created_by.get("id")
+        if author_id and author_id not in mentioned["user_ids"]:
+            mentioned["user_ids"].append(author_id)
+            author_name = created_by.get("displayName", "")
+            if author_name and author_name not in mentioned["names"]:
+                mentioned["names"].append(author_name)
+    elif event_type == "ms.vss-code.git-pullrequest-comment-event":
+        mentioned = _mentions(*reviewers, created_by, actor_id=actor_id)
+    else:
+        mentioned = _mentions(*reviewers, actor_id=actor_id)
 
-        else:
-            actor_name = created_by.get("displayName", "Someone")
-            actor_id = created_by.get("id")
-            body = f"PR #{pr_id} updated ({status}): {title}"
-            heading = "PR Updated"
-            status_image = "pr updated"
-            mentioned = _mentions(*reviewers, actor_id=actor_id)
+    text, link = _extract_message(payload)
+    url = link or (
+        pr.get("url")
+        or pr.get("remoteUrl")
+        or pr.get("_links", {}).get("web", {}).get("href", "")
+    )
 
     avatar = await get_user_avatar_b64(actor_id)
 
     return {
         "event_type": "pr",
-        "heading": heading,
-        "body": body,
+        "heading": _PR_HEADINGS.get(event_type, "Pull Request"),
+        "body": text or f"PR #{pr_id} updated ({status})",
         "url": _clean_url(url),
         "project": project,
         "avatar_b64": avatar,
-        "status_image": status_image,
+        "status_image": _PR_STATUS_IMAGES.get(event_type),
         "actor": actor_name,
         "actor_id": actor_id,
         "mentions": mentioned,
         "meta": {
             "pr_id": pr_id,
-            "repo": repo,
+            "repo": pr.get("repository", {}).get("name", ""),
             "status": status,
         },
     }
@@ -187,12 +203,8 @@ async def _format_pr(event_type: str, resource: dict, project: str) -> dict:
 
 
 async def _format_workitem(
-    event_type: str,
-    resource: dict,
-    project: str,
-    payload: dict,
+    event_type: str, resource: dict, project: str, payload: dict,
 ) -> dict:
-
     wi_resource = (
         resource.get("revision", resource)
         if event_type == "workitem.updated"
@@ -202,7 +214,6 @@ async def _format_workitem(
     fields = wi_resource.get("fields", {})
     wi_id = wi_resource.get("id", resource.get("id", ""))
     wi_type = fields.get("System.WorkItemType", "Work Item")
-    wi_title = fields.get("System.Title", "Untitled")
 
     assigned_to_raw = fields.get("System.AssignedTo", {})
     assigned_to_name = (
@@ -215,7 +226,7 @@ async def _format_workitem(
         changed_by_raw = resource.get("revisedBy", {})
     else:
         changed_by_raw = fields.get(
-            "System.ChangedBy", fields.get("System.CreatedBy", {})
+            "System.ChangedBy", fields.get("System.CreatedBy", {}),
         )
 
     actor_name = (
@@ -232,49 +243,38 @@ async def _format_workitem(
         url = url.split("/updates/")[0]
 
     state = fields.get("System.State", "")
-
     if event_type == "workitem.updated":
         changed_fields = resource.get("fields", {})
-        if "System.State" in changed_fields:
-            state_change = changed_fields["System.State"]
-            if isinstance(state_change, dict) and "newValue" in state_change:
-                state = state_change["newValue"]
-                if state.lower() in ("resolved", "closed", "done"):
-                    event_type = f"workitem.{state.lower()}"
+        state_change = changed_fields.get("System.State")
+        if isinstance(state_change, dict) and "newValue" in state_change:
+            state = state_change["newValue"]
+            if state.lower() in ("resolved", "closed", "done"):
+                event_type = f"workitem.{state.lower()}"
 
     if event_type == "workitem.created":
         heading = f"New {wi_type}"
-        body = f"{actor_name} created {wi_type} #{wi_id}: {wi_title}"
-        if assigned_to_name:
-            body += f"\nAssigned to: {assigned_to_name}"
     elif event_type == "workitem.commented":
         heading = f"{wi_type} Comment"
-        body = f"{actor_name} commented on {wi_type} #{wi_id}: {wi_title}"
     elif event_type in ("workitem.resolved", "workitem.closed", "workitem.done"):
         heading = f"{wi_type} {state}"
-        body = f"{actor_name} {state.lower()} {wi_type} #{wi_id}: {wi_title}"
     else:
         heading = f"{wi_type} Updated"
-        body = f"✏{actor_name} updated {wi_type} #{wi_id}: {wi_title}"
-        if state:
-            body += f" [{state}]"
 
-    if event_type == "workitem.commented":
-        status_image = "workitem comment"
-    else:
-        status_image = wi_type.lower()
+    status_image = (
+        "workitem comment" if event_type == "workitem.commented" else wi_type.lower()
+    )
+
+    text, link = _extract_message(payload)
+    resolved_url = link or url
 
     avatar = await get_user_avatar_b64(actor_id)
-    mentioned = _mentions(
-        assigned_to_raw,
-        actor_id=actor_id,
-    )
+    mentioned = _mentions(assigned_to_raw, actor_id=actor_id)
 
     return {
         "event_type": "workitem",
         "heading": heading,
-        "body": body,
-        "url": _clean_url(url),
+        "body": text or f"{wi_type} #{wi_id}: {heading}",
+        "url": _clean_url(resolved_url),
         "project": project,
         "avatar_b64": avatar,
         "status_image": status_image,
@@ -294,7 +294,6 @@ async def _format_workitem(
 # Pipelines / Builds / Releases
 # ---------------------------------------------------------------------------
 
-# Maps ADO result/status strings to status image keys
 _BUILD_STATUS_IMAGE = {
     "succeeded": "success",
     "failed": "failure",
@@ -302,7 +301,6 @@ _BUILD_STATUS_IMAGE = {
     "cancelled": "cancelled",
     "partiallysucceeded": "failure",
 }
-
 _DEPLOY_STATUS_IMAGE = {
     "succeeded": "success",
     "rejected": "failure",
@@ -312,44 +310,46 @@ _DEPLOY_STATUS_IMAGE = {
 }
 
 
-async def _format_pipeline(event_type: str, resource: dict, project: str) -> dict:
+async def _format_pipeline(
+    event_type: str, resource: dict, project: str, payload: dict,
+) -> dict:
     actor_id: str | None = None
     status_image: str | None = None
+    text, link = _extract_message(payload)
 
     if event_type == "build.complete":
         build_id = resource.get("id", "")
         build_num = resource.get("buildNumber", str(build_id))
         definition = resource.get("definition", {}).get("name", "Pipeline")
-
         result = resource.get("status", "unknown").lower()
 
         requests = resource.get("requests", [])
         requested_for = requests[0].get("requestedFor", {}) if requests else {}
-
         actor_name = requested_for.get("displayName", "Someone")
         actor_id = requested_for.get("id")
-        url = resource.get("_links", {}).get("web", {}).get("href") or resource.get(
-            "url",
-            "",
+
+        url = (
+            link
+            or resource.get("_links", {}).get("web", {}).get("href")
+            or resource.get("url", "")
         )
         heading = f"Build {result.replace('partiallysucceeded', 'partially succeeded').title()}"
-        body = f"{definition} #{build_num} {result}\nTriggered by: {actor_name}"
         status_image = _BUILD_STATUS_IMAGE.get(result)
+        default_body = f"{definition} #{build_num} {result}"
         # Always notify the person who triggered the build — it's their result
         mentioned = _mentions(requested_for, actor_id=None)
 
     elif event_type == "ms.vss-release.release-created-event":
-        release = resource
-        rel_name = release.get("name", "Release")
-        definition = release.get("releaseDefinition", {}).get("name", "")
-        created_by = release.get("createdBy", {})
+        rel_name = resource.get("name", "Release")
+        definition = resource.get("releaseDefinition", {}).get("name", "")
+        created_by = resource.get("createdBy", {})
         actor_name = created_by.get("displayName", "Someone")
         actor_id = created_by.get("id")
-        url = release.get("_links", {}).get("web", {}).get("href", "")
+        url = link or resource.get("_links", {}).get("web", {}).get("href", "")
         heading = "Release Created"
-        body = f"{actor_name} created {rel_name}"
-        if definition:
-            body += f" ({definition})"
+        default_body = f"{actor_name} created {rel_name}" + (
+            f" ({definition})" if definition else ""
+        )
         mentioned = _mentions(actor_id=actor_id)
 
     elif event_type == "ms.vss-release.deployment-completed-event":
@@ -361,11 +361,11 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         requested_for = deployment.get("requestedFor", {})
         actor_name = requested_for.get("displayName", "Someone")
         actor_id = requested_for.get("id")
-        url = (
-            resource.get("release", {}).get("_links", {}).get("web", {}).get("href", "")
+        url = link or resource.get("release", {}).get("_links", {}).get("web", {}).get(
+            "href", "",
         )
         heading = f"Deployment {deploy_status.title()}"
-        body = f"{rel_name} → {env_name}: {deploy_status}"
+        default_body = f"{rel_name} → {env_name}: {deploy_status}"
         status_image = _DEPLOY_STATUS_IMAGE.get(deploy_status)
         mentioned = _mentions(requested_for, actor_id=None)
 
@@ -374,9 +374,9 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         modified_by = resource.get("modifiedBy", {})
         actor_name = modified_by.get("displayName", "Someone")
         actor_id = modified_by.get("id")
-        url = resource.get("_links", {}).get("web", {}).get("href", "")
+        url = link or resource.get("_links", {}).get("web", {}).get("href", "")
         heading = "Release Abandoned"
-        body = f"{actor_name} abandoned {rel_name}"
+        default_body = f"{actor_name} abandoned {rel_name}"
         status_image = "cancelled"
         mentioned = _mentions(actor_id=actor_id)
 
@@ -384,7 +384,7 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
         actor_name = "System"
         url = ""
         heading = "Pipeline Event"
-        body = f"Pipeline event: {event_type}"
+        default_body = f"Pipeline event: {event_type}"
         mentioned = {"user_ids": [], "names": []}
 
     avatar = await get_user_avatar_b64(actor_id)
@@ -392,7 +392,7 @@ async def _format_pipeline(event_type: str, resource: dict, project: str) -> dic
     return {
         "event_type": "pipeline",
         "heading": heading,
-        "body": body,
+        "body": text or default_body,
         "url": _clean_url(url),
         "project": project,
         "avatar_b64": avatar,

@@ -11,8 +11,7 @@ TASK_DESCRIPTION = "Hermes — Azure DevOps notification client"
 
 
 def _resolve_paths() -> tuple[str, str]:
-    """
-    Return (pythonw_path, script_path) for use in the Task Scheduler command.
+    """Return (pythonw_path, script_path) for use in the Task Scheduler command.
 
     uv installs console scripts as .exe wrappers that embed the full path to
     the venv's Python, so we don't need to locate Python separately — we just
@@ -47,8 +46,7 @@ def _resolve_paths() -> tuple[str, str]:
 
 
 def _build_task_xml(pythonw: str, script: str) -> str:
-    """
-    Generate a Task Scheduler XML definition.
+    """Generate a Task Scheduler XML definition.
 
     The task calls:
         pythonw.exe "<path-to-hermes-client.exe>"
@@ -100,8 +98,7 @@ def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
 
 
 def install():
-    """
-    Register the Hermes client as a Task Scheduler logon task.
+    """Register the Hermes client as a Task Scheduler logon task.
     """
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
@@ -143,8 +140,7 @@ def install():
 
 
 def remove():
-    """
-    Remove the Hermes client startup task.
+    """Remove the Hermes client startup task.
     """
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
@@ -158,8 +154,7 @@ def remove():
 
 
 def status():
-    """
-    Print whether the startup task exists and is enabled.
+    """Print whether the startup task exists and is enabled.
     """
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")

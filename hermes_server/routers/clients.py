@@ -51,8 +51,7 @@ def _to_response(client: dict) -> ClientResponse:
 
 @router.post("/register", response_model=ClientResponse)
 async def register_client(body: RegisterRequest):
-    """
-    Register (or re-register) a client.
+    """Register (or re-register) a client.
 
     Re-registering with the same callback_url updates the existing record —
     safe to call on every client startup.
@@ -86,8 +85,7 @@ async def register_client(body: RegisterRequest):
 
 @router.get("/", response_model=list[ClientResponse])
 async def list_clients():
-    """
-    List all registered clients.
+    """List all registered clients.
     """
     clients = await get_all_clients()
     return [_to_response(c) for c in clients]
@@ -95,8 +93,7 @@ async def list_clients():
 
 @router.delete("/{client_id}")
 async def unregister_client(client_id: str):
-    """
-    Unregister a client.
+    """Unregister a client.
     """
     found = await delete_client(client_id)
     if not found:
@@ -106,8 +103,7 @@ async def unregister_client(client_id: str):
 
 @router.put("/{client_id}/subscriptions")
 async def update_subscriptions(client_id: str, subscriptions: list[str]):
-    """
-    Update which event types a client subscribes to.
+    """Update which event types a client subscribes to.
     """
     client = await get_client(client_id)
     if not client:
