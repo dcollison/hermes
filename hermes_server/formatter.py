@@ -31,7 +31,7 @@ def _extract_message(payload: dict) -> tuple[str, str]:
 
 
 def _mentions(
-    *identities: dict | list[str] | None,
+    *identities: dict | str | None,
     actor_id: str | None = None,
 ) -> dict:
     """Build a mentions dict from ADO identity dicts or plain strings.
