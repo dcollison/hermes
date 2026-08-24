@@ -9,7 +9,7 @@ DEFAULT_USER = "simulate-user"
 
 EVENTS = [
     "pr-created",
-    "pr-merged",
+    "pr-completed",
     "pr-updated",
     "pr-comment",
     "wi-bug",
@@ -77,10 +77,10 @@ def generate_payload(event: str, target_user: str) -> dict:
                 "resource": resource,
                 "resourceContainers": resource_containers,
             }
-        if event == "pr-merged":
-            # In 1.0, merges are represented as 'updated' events with 'status': 'completed'
+        if event == "pr-completed":
+            # In 1.0, PR completes are 'updated' events with 'status': 'completed'
             resource["status"] = "completed"
-            # Make the target user the PR author so they receive the merge notification
+            # Make the target user the PR author so they receive the completion notification
             resource["createdBy"] = {
                 "id": target_user,
                 "displayName": "Sim Target User",

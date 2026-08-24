@@ -59,7 +59,6 @@ Hermes stores all state in the `data/` directory:
    |------------|------------------------------|
    | Code       | Pull request created         |
    | Code       | Pull request updated         |
-   | Code       | Pull request merge attempted |
    | Code       | Pull request commented on    |
    | Work Items | Work item created            |
    | Work Items | Work item updated            |
@@ -127,7 +126,7 @@ Clients can subscribe to specific event types so they only receive relevant noti
 
 | Value      | Events received                                         |
 |------------|---------------------------------------------------------|
-| `pr`       | Pull request created, updated, merged, commented        |
+| `pr`       | Pull request created, updated, completed, commented     |
 | `workitem` | Work item created, updated, commented, resolved, closed |
 | `pipeline` | Build completed, release created/deployed/abandoned     |
 | `manual`   | Manual push notifications from the server               |

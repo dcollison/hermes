@@ -105,7 +105,6 @@ async def format_webhook(event_type: str, payload: dict) -> dict[str, object] | 
         if event_type in (
             "git.pullrequest.created",
             "git.pullrequest.updated",
-            "git.pullrequest.merged",
             "ms.vss-code.git-pullrequest-comment-event",
         ):
             return await _format_pr(event_type, resource, project, payload)
@@ -142,13 +141,13 @@ async def format_webhook(event_type: str, payload: dict) -> dict[str, object] | 
 _PR_HEADINGS = {
     "git.pullrequest.created": "New Pull Request",
     "git.pullrequest.updated": "PR Updated",
-    "git.pullrequest.merged": "PR Merged",
+    "git.pullrequest.completed": "PR Completed",
     "ms.vss-code.git-pullrequest-comment-event": "PR Comment",
 }
 _PR_STATUS_IMAGES = {
     "git.pullrequest.created": "new pr",
     "git.pullrequest.updated": "pr updated",
-    "git.pullrequest.merged": "pr merged",
+    "git.pullrequest.completed": "pr completed",
     "ms.vss-code.git-pullrequest-comment-event": "pr comment",
 }
 
@@ -158,15 +157,19 @@ async def _format_pr(
     resource: dict,
     project: str,
     payload: dict,
-) -> dict:
+) -> dict | None:
     """Format a pull request webhook event into a notification dictionary.
 
     :param event_type: Specific PR event type string.
     :param resource: Pull request resource payload.
     :param project: Team project name.
     :param payload: Full webhook payload dictionary.
-    :returns: Formatted Hermes notification dictionary.
+    :returns: Formatted Hermes notification dictionary or None if ignored.
     """
+    # Ignore standalone PR merge attempts
+    if event_type == "git.pullrequest.merged":
+        return None
+
     if event_type == "ms.vss-code.git-pullrequest-comment-event":
         pr = resource.get("pullRequest", {})
         actor = resource.get("author", {})
@@ -185,18 +188,17 @@ async def _format_pr(
     created_by = pr.get("createdBy", {})
     reviewers: list[dict] = pr.get("reviewers", [])
 
-    # In 1.0, merges are sent as `updated` events with status: completed
-    if event_type == "git.pullrequest.updated" and status == "completed":
-        event_type = "git.pullrequest.merged"
+    # In ADO Service Hooks 1.0, PR completions are sent as `updated` events with status: completed
+    if event_type == "git.pullrequest.updated" and status.lower() == "completed":
+        event_type = "git.pullrequest.completed"
 
     actor_id = actor.get("id")
     actor_name = actor.get("displayName", "Someone")
 
     text, link = _extract_message(payload)
 
-    if event_type == "git.pullrequest.merged":
-        # Notify reviewers AND the author — even if the author is the one
-        # who clicked merge, they still want the confirmation.
+    if event_type == "git.pullrequest.completed":
+        # Notify reviewers AND the author of PR completion
         mentioned = _mentions(*reviewers, actor_id=actor_id, message=text)
         author_id = created_by.get("id")
         if author_id and author_id not in mentioned["user_ids"]:
@@ -224,11 +226,12 @@ async def _format_pr(
     )
 
     avatar = await get_user_avatar_b64(actor_id)
+    default_body = f"PR #{pr_id} completed" if event_type == "git.pullrequest.completed" else f"PR #{pr_id} updated ({status})"
 
     return {
         "event_type": "pr",
         "heading": _PR_HEADINGS.get(event_type, "Pull Request"),
-        "body": text or f"PR #{pr_id} updated ({status})",
+        "body": text or default_body,
         "url": _clean_url(url),
         "project": project,
         "avatar_b64": avatar,

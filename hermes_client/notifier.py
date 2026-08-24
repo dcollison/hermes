@@ -25,6 +25,7 @@ _STATUS_ICONS = {
     "failure": "failed",
     "cancelled": "cancelled",
     "new pr": "pr",
+    "pr completed": "merged",
     "pr merged": "merged",
     "pr comment": "comment",
     "pr updated": "pr",

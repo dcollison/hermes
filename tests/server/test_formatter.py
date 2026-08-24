@@ -152,24 +152,22 @@ class TestFormatPR:
         notif = await self._format("git.pullrequest.updated")
         assert "reviewer-id" in notif["mentions"]["user_ids"]
 
-    async def test_pr_merged_mentions_author_and_reviewers(self):
+    async def test_pr_completed_mentions_author_and_reviewers(self):
         # In 1.0, PR completes are updated events with status: completed
-        notif = await self._format(
-            "git.pullrequest.updated",
-            {
-                "status": "completed",
-            },
-        )
-        # The author and reviewers should all be notified of the merge
-        assert "author-id" in notif["mentions"]["user_ids"]
-        assert "reviewer-id" in notif["mentions"]["user_ids"]
-
-    async def test_pr_merged_has_pr_merged_status_image(self):
         notif = await self._format(
             "git.pullrequest.updated",
             {"status": "completed"},
         )
-        assert notif["status_image"] == "pr merged"
+        assert notif is not None
+        assert notif["heading"] == "PR Completed"
+        assert notif["status_image"] == "pr completed"
+        assert "author-id" in notif["mentions"]["user_ids"]
+        assert "reviewer-id" in notif["mentions"]["user_ids"]
+
+    async def test_pr_merged_attempt_event_returns_none(self):
+        # Background PR merge attempts (git.pullrequest.merged) should be ignored
+        notif = await self._format("git.pullrequest.merged")
+        assert notif is None
 
     async def test_pr_created_has_new_pr_status_image(self):
         notif = await self._format("git.pullrequest.created")

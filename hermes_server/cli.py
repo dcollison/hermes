@@ -142,7 +142,7 @@ def _cmd_simulate(args: argparse.Namespace) -> None:
     # Human-readable descriptions for the CLI menus
     event_descriptions = {
         "pr-created": "Simulate opening a new pull request",
-        "pr-merged": "Simulate completing/merging a pull request",
+        "pr-completed": "Simulate completing a pull request",
         "pr-updated": "Simulate updating an active pull request",
         "pr-comment": "Simulate a new comment on a pull request",
         "wi-bug": "Simulate creating a Bug work item",
