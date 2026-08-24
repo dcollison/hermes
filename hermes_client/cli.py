@@ -29,7 +29,12 @@ app = FastAPI(title="Hermes Client", version=__version__)
 
 
 @app.post("/notify")
-async def receive_notification(request: Request):
+async def receive_notification(request: Request) -> JSONResponse:
+    """Receive an incoming notification payload and trigger desktop toast display.
+
+    :param request: Incoming FastAPI Request containing the notification JSON.
+    :returns: JSONResponse acknowledging notification receipt.
+    """
     payload = await request.json()
     logger.info(f"Received: {payload.get('heading', '?')}")
     threading.Thread(target=show_notification, args=(payload,), daemon=True).start()
@@ -37,7 +42,11 @@ async def receive_notification(request: Request):
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, str]:
+    """Health check endpoint for the client notification listener.
+
+    :returns: Dictionary with service status and client version.
+    """
     return {"status": "ok", "service": "Hermes Client", "version": __version__}
 
 
@@ -46,7 +55,16 @@ async def health():
 # ---------------------------------------------------------------------------
 
 
-def register_with_server(settings: ClientSettings, retries: int = 5):
+def register_with_server(
+    settings: ClientSettings,
+    retries: int = 5,
+) -> dict[str, object] | None:
+    """Register this client instance with the Hermes server.
+
+    :param settings: Configured client settings.
+    :param retries: Number of connection attempts before failing.
+    :returns: Server registration response dictionary, or None if unreachable.
+    """
     payload = {
         "name": settings.CLIENT_NAME,
         "callback_url": settings.CALLBACK_URL,
@@ -79,8 +97,12 @@ def register_with_server(settings: ClientSettings, retries: int = 5):
 
 
 def _prompt(label: str, default: str = "", secret: bool = False) -> str:
-    """Prompt the user for input. Shows the default in brackets.
-    Masks input for secrets (PATs / passwords).
+    """Prompt the user for terminal input with an optional default value.
+
+    :param label: Text prompt label to display.
+    :param default: Default string value used if input is blank.
+    :param secret: Whether to mask user input via getpass for secrets.
+    :returns: Entered string value or default.
     """
     hint = f" [{default if not secret else '***'}]" if default else ""
     prompt_str = f"  {label}{hint}: "
@@ -91,9 +113,11 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
     return value or default
 
 
-def _cmd_configure(args: argparse.Namespace):
+def _cmd_configure(args: argparse.Namespace) -> None:
     """Interactive wizard that resolves the user's ADO identity via their PAT
     and writes a complete .env.hermes-client config file.
+
+    :param args: Parsed command line arguments.
     """
     # Load whatever exists already so we can offer it as defaults
     settings = ClientSettings()
@@ -186,8 +210,10 @@ def _cmd_configure(args: argparse.Namespace):
 
 
 def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
-    """Load settings from the env file, apply any CLI overrides, then
-    auto-resolve missing CALLBACK_URL / ADO identity if we have a PAT.
+    """Load settings from the env file, apply CLI overrides, and auto-resolve missing values.
+
+    :param args: Parsed command line arguments.
+    :returns: Populated ClientSettings instance.
     """
     # Local
     from .ado import resolve_callback_url, resolve_identity
@@ -243,7 +269,11 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
     return settings
 
 
-def _cmd_run(args: argparse.Namespace):
+def _cmd_run(args: argparse.Namespace) -> None:
+    """Start the client listener web server and register with Hermes server.
+
+    :param args: Parsed command line arguments.
+    """
     if os.name == "nt":
         os.system("")
 
@@ -286,7 +316,11 @@ def _cmd_run(args: argparse.Namespace):
 # ---------------------------------------------------------------------------
 
 
-def _cmd_startup(args: argparse.Namespace):
+def _cmd_startup(args: argparse.Namespace) -> None:
+    """Execute startup subcommands (install, remove, status).
+
+    :param args: Parsed command line arguments.
+    """
     {"install": startup.install, "remove": startup.remove, "status": startup.status}[
         args.startup_command
     ]()
@@ -298,6 +332,10 @@ def _cmd_startup(args: argparse.Namespace):
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Construct and return the client CLI argument parser.
+
+    :returns: Configured ArgumentParser instance.
+    """
     parser = argparse.ArgumentParser(
         prog="hermes-client",
         description="Hermes — Azure DevOps notification client",
@@ -353,7 +391,8 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
+def main() -> None:
+    """Main entrypoint for the hermes-client CLI."""
     parser = _build_parser()
     args = parser.parse_args()
 

@@ -36,9 +36,13 @@ class ManualNotificationResponse(BaseModel):
 
 
 @router.post("/send", response_model=ManualNotificationResponse)
-async def send_manual_notification(body: ManualNotificationRequest):
+async def send_manual_notification(
+    body: ManualNotificationRequest,
+) -> ManualNotificationResponse:
     """Push a manual notification to all active clients subscribed to 'manual' or 'all'.
-    Use the notify.py CLI script for a friendlier interface.
+
+    :param body: Manual notification request payload.
+    :returns: ManualNotificationResponse summarizing dispatch outcome.
     """
     clients = await get_all_clients()
     targets = [
@@ -79,7 +83,7 @@ async def send_manual_notification(body: ManualNotificationRequest):
         "meta": {},
     }
 
-    async def _send_one(client: dict):
+    async def _send_one(client: dict) -> None:
         success = True
         error_msg = None
         try:
@@ -116,6 +120,12 @@ async def get_notification_logs(
     limit: int = 50,
     event_type: str | None = None,
     client_id: str | None = None,
-):
-    """View recent notification delivery logs."""
+) -> list[dict]:
+    """View recent notification delivery logs.
+
+    :param limit: Maximum log entries to return.
+    :param event_type: Optional event type filter string.
+    :param client_id: Optional client ID filter string.
+    :returns: List of notification log entry dictionaries.
+    """
     return await get_logs(limit=limit, event_type=event_type, client_id=client_id)

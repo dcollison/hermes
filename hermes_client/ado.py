@@ -9,9 +9,13 @@ from msrest.authentication import BasicAuthentication
 logger = logging.getLogger("hermes.client.ado")
 
 
-def resolve_identity(ado_url: str, pat: str) -> dict:
-    """Resolve the caller's ADO identity via the azure-devops SDK's profile
-    client (GET profiles/me), instead of a raw connectionData call.
+def resolve_identity(ado_url: str, pat: str) -> dict[str, str]:
+    """Resolve the caller's ADO identity via the azure-devops SDK's profile client.
+
+    :param ado_url: The Azure DevOps organization or collection base URL.
+    :param pat: Personal Access Token with read access to the user profile.
+    :returns: Dictionary with keys ``user_id`` and ``display_name``.
+    :raises ValueError: If ADO returns no user ID.
     """
     connection = Connection(
         base_url=ado_url.rstrip("/"),
@@ -32,6 +36,11 @@ def resolve_identity(ado_url: str, pat: str) -> dict:
 
 
 def resolve_callback_url(port: int) -> str:
+    """Resolve the local machine's reachable IP address and format the notification callback URL.
+
+    :param port: The local TCP port the client listens on.
+    :returns: The complete callback URL for notification delivery.
+    """
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
             s.connect(("8.8.8.8", 80))

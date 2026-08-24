@@ -7,10 +7,10 @@ import os
 import uuid
 from datetime import UTC, datetime
 
-logger = logging.getLogger(__name__)
-
 # Local
 from .config import settings as _settings
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Paths & tunable constants
@@ -38,7 +38,10 @@ _notif_logger: logging.Logger | None = None
 
 def _build_notif_logger() -> logging.Logger:
     """Create (or reuse) a Python logger backed by a RotatingFileHandler.
+
     Each record written to it must already be a single-line JSON string.
+
+    :returns: Configured logging.Logger instance.
     """
     nl = logging.getLogger("hermes.notifications")
     nl.propagate = False  # Don't bubble up to the root logger
@@ -58,7 +61,7 @@ def _build_notif_logger() -> logging.Logger:
     return nl
 
 
-async def init_db():
+async def init_db() -> None:
     """Create the data directory and seed missing files."""
     os.makedirs(DATA_DIR, exist_ok=True)
 
@@ -84,12 +87,22 @@ async def init_db():
 # ---------------------------------------------------------------------------
 
 
-def _read_json(path: str):
+def _read_json(path: str) -> dict:
+    """Read and parse a JSON file.
+
+    :param path: Filesystem path to the JSON file.
+    :returns: Parsed JSON data structure.
+    """
     with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
-def _write_json(path: str, data):
+def _write_json(path: str, data: dict) -> None:
+    """Atomically write dictionary content to a JSON file via a temporary file.
+
+    :param path: Target destination path.
+    :param data: JSON-serializable dictionary.
+    """
     tmp = path + ".tmp"
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, default=str)
@@ -101,19 +114,33 @@ def _write_json(path: str, data):
 # ---------------------------------------------------------------------------
 
 
-async def get_all_clients() -> list:
+async def get_all_clients() -> list[dict]:
+    """Retrieve all registered client records.
+
+    :returns: List of client dictionary records.
+    """
     async with _lock:
         data = _read_json(CLIENTS_FILE)
     return list(data.values())
 
 
 async def get_client(client_id: str) -> dict | None:
+    """Retrieve a client record by unique ID.
+
+    :param client_id: Client identifier string.
+    :returns: Client dictionary if found, or None.
+    """
     async with _lock:
         data = _read_json(CLIENTS_FILE)
     return data.get(client_id)
 
 
 async def get_client_by_callback(callback_url: str) -> dict | None:
+    """Retrieve a client record matching the given callback URL.
+
+    :param callback_url: Notification callback URL.
+    :returns: Matching client record dictionary or None.
+    """
     async with _lock:
         data = _read_json(CLIENTS_FILE)
     for client in data.values():
@@ -123,7 +150,11 @@ async def get_client_by_callback(callback_url: str) -> dict | None:
 
 
 async def save_client(client: dict) -> dict:
-    """Insert or update a client record."""
+    """Insert or update a client record in storage.
+
+    :param client: Client record dictionary with an 'id' key.
+    :returns: The saved client dictionary.
+    """
     async with _lock:
         data = _read_json(CLIENTS_FILE)
         data[client["id"]] = client
@@ -132,6 +163,11 @@ async def save_client(client: dict) -> dict:
 
 
 async def delete_client(client_id: str) -> bool:
+    """Mark a registered client as inactive.
+
+    :param client_id: Client identifier string.
+    :returns: True if client was found and updated, False otherwise.
+    """
     async with _lock:
         data = _read_json(CLIENTS_FILE)
         if client_id not in data:
@@ -146,21 +182,28 @@ async def delete_client(client_id: str) -> bool:
 # ---------------------------------------------------------------------------
 
 
-async def append_log(entry: dict):
+async def append_log(entry: dict) -> None:
     """Write one notification entry to the rotating log file.
+
     Each line is a compact JSON object (NDJSON format).
     The RotatingFileHandler rolls the file automatically when it hits
     LOG_MAX_BYTES — no manual size checks needed here.
+
+    :param entry: Log entry dictionary to append.
     """
     line = json.dumps(entry, default=str)
     async with _lock:
-        _notif_logger.info(line)
+        if _notif_logger:
+            _notif_logger.info(line)
 
 
 def _log_files_newest_first() -> list[str]:
     """Return all log file paths in newest-first order:
       [notifications.log, notifications.log.1, notifications.log.2, ...]
+
     Only paths that actually exist are included.
+
+    :returns: List of existing log file paths.
     """
     paths = [LOG_FILE] + [f"{LOG_FILE}.{i}" for i in range(1, LOG_BACKUP_COUNT + 1)]
     return [p for p in paths if os.path.exists(p)]
@@ -170,9 +213,14 @@ async def get_logs(
     limit: int = 50,
     event_type: str | None = None,
     client_id: str | None = None,
-) -> list:
+) -> list[dict]:
     """Read log entries across all rolled files, returning the most recent
     entries first. Applies optional filters by event_type and client_id.
+
+    :param limit: Maximum number of entries to return.
+    :param event_type: Optional event type filter.
+    :param client_id: Optional client ID filter.
+    :returns: List of log entry dictionaries.
     """
     entries: list[dict] = []
 
@@ -211,7 +259,22 @@ async def get_logs(
 # ---------------------------------------------------------------------------
 
 
-def make_client(name, callback_url, ado_user_id, display_name, subscriptions):
+def make_client(
+    name: str,
+    callback_url: str,
+    ado_user_id: str,
+    display_name: str,
+    subscriptions: list[str],
+) -> dict:
+    """Construct a new client record dictionary.
+
+    :param name: Human-readable client label.
+    :param callback_url: Webhook callback URL on the client.
+    :param ado_user_id: Azure DevOps identity GUID.
+    :param display_name: Azure DevOps user display name.
+    :param subscriptions: List of subscribed event categories.
+    :returns: Initialized client dictionary.
+    """
     now = datetime.now(UTC).isoformat()
     return {
         "id": str(uuid.uuid4()),
@@ -226,7 +289,22 @@ def make_client(name, callback_url, ado_user_id, display_name, subscriptions):
     }
 
 
-def make_log_entry(client_id, event_type, payload, success, error):
+def make_log_entry(
+    client_id: str,
+    event_type: str,
+    payload: dict,
+    success: bool,
+    error: str | None,
+) -> dict:
+    """Construct a notification log entry dictionary.
+
+    :param client_id: Target client identifier.
+    :param event_type: Event category string.
+    :param payload: Notification payload dictionary.
+    :param success: Whether delivery succeeded.
+    :param error: Error message string or None.
+    :returns: Formatted log entry dictionary.
+    """
     return {
         "id": str(uuid.uuid4()),
         "client_id": client_id,

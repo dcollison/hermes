@@ -21,10 +21,7 @@ def _resolve_paths() -> tuple[str, str]:
     The Task Scheduler entry runs:
         pythonw.exe  <script>.exe
 
-    pythonw.exe is the windowless Python launcher alongside the current
-    interpreter. Passing the .exe script as an argument to pythonw.exe is the
-    cleanest way to suppress the console window — the script exe itself would
-    show one.
+    :returns: Tuple containing (pythonw_executable_path, client_script_path).
     """
     # The running script (hermes-client.exe or hermes-client on Unix)
     script = Path(sys.argv[0]).resolve()
@@ -48,12 +45,9 @@ def _resolve_paths() -> tuple[str, str]:
 def _build_task_xml(pythonw: str, script: str) -> str:
     """Generate a Task Scheduler XML definition.
 
-    The task calls:
-        pythonw.exe "<path-to-hermes-client.exe>"
-
-    Using pythonw.exe as the launcher suppresses the console window.
-    The script .exe runs as its own process, so no extra Arguments are needed
-    for uv — the venv is already baked into the .exe wrapper by uv.
+    :param pythonw: Absolute path to the pythonw.exe launcher.
+    :param script: Absolute path to the hermes-client executable script.
+    :returns: XML configuration string for Task Scheduler.
     """
     username = f"{os.environ.get('USERDOMAIN', '.')}\\{os.environ.get('USERNAME', '')}"
 
@@ -93,11 +87,17 @@ def _build_task_xml(pythonw: str, script: str) -> str:
     """)
 
 
-def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess:
+def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess command capturing textual output.
+
+    :param args: Command line argument tokens.
+    :param check: Whether to raise CalledProcessError on non-zero exit code.
+    :returns: CompletedProcess instance containing captured output.
+    """
     return subprocess.run(args, capture_output=True, text=True, check=check)
 
 
-def install():
+def install() -> None:
     """Register the Hermes client as a Task Scheduler logon task."""
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
@@ -138,7 +138,7 @@ def install():
             pass
 
 
-def remove():
+def remove() -> None:
     """Remove the Hermes client startup task."""
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
@@ -151,7 +151,7 @@ def remove():
         print(f"Task '{TASK_NAME}' was not found — nothing to remove.")
 
 
-def status():
+def status() -> None:
     """Print whether the startup task exists and is enabled."""
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")

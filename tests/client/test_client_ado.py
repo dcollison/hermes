@@ -1,5 +1,4 @@
 # Standard
-import base64
 from unittest.mock import MagicMock, patch
 
 # Remote

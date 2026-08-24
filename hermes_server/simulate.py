@@ -28,8 +28,12 @@ EVENTS = [
 ]
 
 
-def _send(payload: dict, url: str):
-    """Send the simulated webhook payload to the Hermes server."""
+def _send(payload: dict, url: str) -> None:
+    """Send the simulated webhook payload to the Hermes server.
+
+    :param payload: Webhook JSON dictionary payload.
+    :param url: Target HTTP URL.
+    """
     req = urllib.request.Request(
         url,
         data=json.dumps(payload).encode("utf-8"),
@@ -43,7 +47,13 @@ def _send(payload: dict, url: str):
 
 
 def generate_payload(event: str, target_user: str) -> dict:
-    """Generate a fake ADO 1.0 webhook payload for a given event type."""
+    """Generate a fake ADO 1.0 webhook payload for a given event type.
+
+    :param event: The event simulator identifier (e.g., 'pr-created').
+    :param target_user: User identity ID or display name to target.
+    :returns: Complete mock Azure DevOps webhook payload dictionary.
+    :raises ValueError: If event is unknown.
+    """
     project = {"name": "Simulated Project"}
     resource_containers = {"project": project}
 
@@ -223,7 +233,8 @@ def generate_payload(event: str, target_user: str) -> dict:
     raise ValueError(f"Unknown event type: {event}")
 
 
-def main():
+def main() -> None:
+    """Main entrypoint for the standalone ADO webhook simulation script."""
     parser = argparse.ArgumentParser(description="Simulate ADO webhooks for Hermes")
     parser.add_argument(
         "event",

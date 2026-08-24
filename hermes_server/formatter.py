@@ -15,7 +15,9 @@ def _extract_message(payload: dict) -> tuple[str, str]:
     """Pull the human-readable text straight from ADO's own "message" block
     instead of hand-building it, and try to recover a link from the html
     or markdown variant. Falls back to detailedMessage if message is absent.
-    Returns (text, link) — link is "" if none could be found.
+
+    :param payload: Azure DevOps webhook event payload.
+    :returns: Tuple containing (message_text, hyperlink_url).
     """
     msg = payload.get("message") or payload.get("detailedMessage") or {}
     text = (msg.get("text") or "").strip()
@@ -34,10 +36,16 @@ def _mentions(
     *identities: dict | str | None,
     actor_id: str | None = None,
     message: str | None = None,
-) -> dict:
+) -> dict[str, list[str]]:
     """Build a mentions dict from ADO identity dicts or plain strings.
+
     The actor is excluded so they don't get notified of their own actions.
     Users whose names appear in the notification message are also excluded.
+
+    :param identities: ADO identity dictionaries or user display name strings.
+    :param actor_id: Optional ID of the user initiating the action to exclude.
+    :param message: Optional notification message text to filter named users.
+    :returns: Dictionary with lists of ``user_ids`` and ``names``.
     """
     user_ids: list[str] = []
     names: list[str] = []
@@ -79,9 +87,12 @@ def _mentions(
     return {"user_ids": user_ids, "names": names}
 
 
-async def format_webhook(event_type: str, payload: dict) -> dict | None:
+async def format_webhook(event_type: str, payload: dict) -> dict[str, object] | None:
     """Parse an ADO webhook payload and return a notification dict.
-    Returns None if the event type is not handled.
+
+    :param event_type: Azure DevOps webhook event type identifier.
+    :param payload: Complete ADO webhook payload dictionary.
+    :returns: Formatted notification dictionary, or None if unhandled.
     """
     try:
         resource = payload.get("resource", {})
@@ -148,6 +159,14 @@ async def _format_pr(
     project: str,
     payload: dict,
 ) -> dict:
+    """Format a pull request webhook event into a notification dictionary.
+
+    :param event_type: Specific PR event type string.
+    :param resource: Pull request resource payload.
+    :param project: Team project name.
+    :param payload: Full webhook payload dictionary.
+    :returns: Formatted Hermes notification dictionary.
+    """
     if event_type == "ms.vss-code.git-pullrequest-comment-event":
         pr = resource.get("pullRequest", {})
         actor = resource.get("author", {})
@@ -236,6 +255,14 @@ async def _format_workitem(
     project: str,
     payload: dict,
 ) -> dict:
+    """Format a work item webhook event into a notification dictionary.
+
+    :param event_type: Specific work item event type string.
+    :param resource: Work item resource payload.
+    :param project: Team project name.
+    :param payload: Full webhook payload dictionary.
+    :returns: Formatted Hermes notification dictionary.
+    """
     wi_resource = (
         resource.get("revision", resource)
         if event_type == "workitem.updated"
@@ -348,6 +375,14 @@ async def _format_pipeline(
     project: str,
     payload: dict,
 ) -> dict:
+    """Format a build or release pipeline event into a notification dictionary.
+
+    :param event_type: Specific pipeline event type string.
+    :param resource: Build or release resource payload.
+    :param project: Team project name.
+    :param payload: Full webhook payload dictionary.
+    :returns: Formatted Hermes notification dictionary.
+    """
     actor_id: str | None = None
     status_image: str | None = None
     text, link = _extract_message(payload)
@@ -441,6 +476,11 @@ async def _format_pipeline(
 
 
 def _clean_url(url: str) -> str:
+    """Clean raw API URLs to ensure only browser-friendly URLs are provided.
+
+    :param url: Raw URL string.
+    :returns: Sanitized URL string or empty string.
+    """
     if not url:
         return ""
     if "/_apis/" in url and "/_workitems" not in url:

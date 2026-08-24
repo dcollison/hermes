@@ -20,7 +20,12 @@ router = APIRouter()
 
 
 def _verify_secret(body: bytes, signature: str | None) -> bool:
-    """Validate ADO shared secret if configured."""
+    """Validate the Azure DevOps HMAC-SHA1 shared secret if configured.
+
+    :param body: Raw request body bytes.
+    :param signature: Value of the X-Hub-Signature header.
+    :returns: True if signature matches or secret is unconfigured; False otherwise.
+    """
     if not settings.ADO_WEBHOOK_SECRET:
         return True  # No secret configured - accept all
     if not signature:
@@ -33,8 +38,11 @@ def _verify_secret(body: bytes, signature: str | None) -> bool:
     return hmac.compare_digest(f"sha1={expected}", signature)
 
 
-def _append_to_jsonl(data: dict):
-    """Synchronous file write to be run in a thread."""
+def _append_to_jsonl(data: dict) -> None:
+    """Synchronously append an entry dictionary to the raw webhooks JSONL log.
+
+    :param data: Log entry dictionary to append.
+    """
     try:
         log_path = Path(settings.DATA_DIR) / "webhooks.jsonl"
         log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -44,8 +52,12 @@ def _append_to_jsonl(data: dict):
         logger.exception("Failed to log raw webhook", exc_info=e)
 
 
-async def _log_webhook(payload: dict, event_type: str):
-    """Log the raw webhook payload to a JSONL file in the background."""
+async def _log_webhook(payload: dict, event_type: str) -> None:
+    """Log the raw webhook payload to a JSONL file in the background.
+
+    :param payload: Raw webhook payload dictionary.
+    :param event_type: Azure DevOps event type string.
+    """
     if not settings.LOG_RAW_WEBHOOKS:
         return
 
@@ -63,9 +75,15 @@ async def _log_webhook(payload: dict, event_type: str):
 async def receive_webhook(
     request: Request,
     x_hub_signature: str | None = Header(None),
-):
+) -> dict[str, str]:
     """Receive Azure DevOps webhook events.
+
     Configure your ADO service hook to POST to: {SERVER_URL}/webhooks/ado
+
+    :param request: FastAPI Request instance.
+    :param x_hub_signature: Optional X-Hub-Signature header for validation.
+    :returns: Dictionary with acceptance status and eventType.
+    :raises HTTPException: On invalid secret (401) or missing eventType (400).
     """
     body = await request.body()
 
@@ -89,7 +107,12 @@ async def receive_webhook(
     return {"status": "accepted", "eventType": event_type}
 
 
-async def _process(event_type: str, payload: dict):
+async def _process(event_type: str, payload: dict) -> None:
+    """Format and dispatch an ADO webhook notification in the background.
+
+    :param event_type: Azure DevOps event type string.
+    :param payload: Raw webhook payload dictionary.
+    """
     notification = await format_webhook(event_type, payload)
     if notification:
         await dispatch(notification)

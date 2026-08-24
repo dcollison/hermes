@@ -38,6 +38,11 @@ class ClientResponse(BaseModel):
 
 
 def _to_response(client: dict) -> ClientResponse:
+    """Convert an internal client dictionary record into a ClientResponse model.
+
+    :param client: Client record dictionary.
+    :returns: ClientResponse schema instance.
+    """
     return ClientResponse(
         id=client["id"],
         name=client["name"],
@@ -50,11 +55,14 @@ def _to_response(client: dict) -> ClientResponse:
 
 
 @router.post("/register", response_model=ClientResponse)
-async def register_client(body: RegisterRequest):
+async def register_client(body: RegisterRequest) -> ClientResponse:
     """Register (or re-register) a client.
 
     Re-registering with the same callback_url updates the existing record —
     safe to call on every client startup.
+
+    :param body: Client registration parameters.
+    :returns: Registered ClientResponse data.
     """
     existing = await get_client_by_callback(body.callback_url)
     if existing:
@@ -84,24 +92,41 @@ async def register_client(body: RegisterRequest):
 
 
 @router.get("/", response_model=list[ClientResponse])
-async def list_clients():
-    """List all registered clients."""
+async def list_clients() -> list[ClientResponse]:
+    """List all registered clients.
+
+    :returns: List of ClientResponse objects.
+    """
     clients = await get_all_clients()
     return [_to_response(c) for c in clients]
 
 
 @router.delete("/{client_id}")
-async def unregister_client(client_id: str):
-    """Unregister a client."""
+async def unregister_client(client_id: str) -> dict[str, str]:
+    """Unregister a client.
+
+    :param client_id: Unique client identifier.
+    :returns: Dictionary with status and client ID.
+    :raises HTTPException: If client ID is not found.
+    """
     found = await delete_client(client_id)
     if not found:
         raise HTTPException(status_code=404, detail="Client not found")
     return {"status": "unregistered", "id": client_id}
 
 
-@router.put("/{client_id}/subscriptions")
-async def update_subscriptions(client_id: str, subscriptions: list[str]):
-    """Update which event types a client subscribes to."""
+@router.put("/{client_id}/subscriptions", response_model=ClientResponse)
+async def update_subscriptions(
+    client_id: str,
+    subscriptions: list[str],
+) -> ClientResponse:
+    """Update which event types a client subscribes to.
+
+    :param client_id: Unique client identifier.
+    :param subscriptions: List of event type category strings.
+    :returns: Updated ClientResponse.
+    :raises HTTPException: If client ID is not found.
+    """
     client = await get_client(client_id)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")

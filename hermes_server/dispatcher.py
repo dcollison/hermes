@@ -15,7 +15,12 @@ logger = logging.getLogger(__name__)
 
 async def _client_is_relevant(client: dict, notification: dict) -> bool:
     """Return True if this client should receive the notification.
+
     Checks event type subscription, then identity/group relevance.
+
+    :param client: Client record dictionary.
+    :param notification: Formatted notification dictionary.
+    :returns: True if the client is eligible to receive the notification.
     """
     # --- subscription check ---
     subs = client.get("subscriptions", [])
@@ -68,8 +73,11 @@ async def _client_is_relevant(client: dict, notification: dict) -> bool:
     return False
 
 
-async def dispatch(notification: dict):
-    """Send a notification to all eligible registered clients."""
+async def dispatch(notification: dict) -> None:
+    """Send a notification to all eligible registered clients.
+
+    :param notification: Formatted notification dictionary.
+    """
     clients = await get_all_clients()
     active = [c for c in clients if c.get("active")]
 
@@ -87,7 +95,12 @@ async def dispatch(notification: dict):
     await asyncio.gather(*tasks, return_exceptions=True)
 
 
-async def _send(client: dict, notification: dict):
+async def _send(client: dict, notification: dict) -> None:
+    """Send notification payload to a single client and log the outcome.
+
+    :param client: Target client dictionary record.
+    :param notification: Formatted notification dictionary.
+    """
     success = True
     error_msg = None
     try:

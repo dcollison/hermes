@@ -21,6 +21,10 @@ _connection: Connection | None = None
 
 
 def _get_connection() -> Connection | None:
+    """Initialize and cache the Azure DevOps SDK Connection.
+
+    :returns: Connection object or None if PAT/URL is unconfigured.
+    """
     global _connection
     if _connection is None and settings.ADO_PAT and settings.ADO_ORGANIZATION_URL:
         creds = BasicAuthentication("", settings.ADO_PAT)
@@ -28,7 +32,11 @@ def _get_connection() -> Connection | None:
     return _connection
 
 
-def _get_identity_client():
+def _get_identity_client() -> object | None:
+    """Return an Azure DevOps IdentityClient instance from the connection.
+
+    :returns: IdentityClient instance or None if unavailable.
+    """
     conn = _get_connection()
     if not conn:
         return None
@@ -39,15 +47,24 @@ def _get_identity_client():
         return None
 
 
-def _auth_headers() -> dict:
+def _auth_headers() -> dict[str, str]:
+    """Generate Basic Authentication HTTP headers for Azure DevOps REST endpoints.
+
+    :returns: Dictionary with Authorization and Accept headers.
+    """
     token = base64.b64encode(f":{settings.ADO_PAT}".encode()).decode()
     return {"Authorization": f"Basic {token}", "Accept": "application/json"}
 
 
 async def get_user_avatar_b64(identity_id: str | None) -> str | None:
-    """Left on the raw REST endpoint — the SDK's Graph avatar API expects a
+    """Fetch and base64-encode a user's avatar image from the ADO Graph API.
+
+    Left on the raw REST endpoint — the SDK's Graph avatar API expects a
     subjectDescriptor (Services-style), and on-prem ADO Server's binary
     /_apis/graph/avatars/{id} endpoint isn't modeled in the SDK.
+
+    :param identity_id: Azure DevOps user identity GUID.
+    :returns: Base64 data URI string or None if unconfigured or unavailable.
     """
     if not settings.ADO_PAT or not settings.ADO_ORGANIZATION_URL or not identity_id:
         return None
@@ -71,8 +88,10 @@ async def get_user_avatar_b64(identity_id: str | None) -> str | None:
 
 
 async def get_user_groups(identity_id: str) -> dict[str, list[str]]:
-    """Return ADO group IDs/names this user belongs to, via the SDK's
-    IdentityClient instead of a raw `_apis/identities` call.
+    """Return ADO group IDs/names this user belongs to, via the SDK's IdentityClient.
+
+    :param identity_id: Azure DevOps user identity GUID.
+    :returns: Dictionary with group ``ids`` and ``names`` lists.
     """
     if not settings.ADO_PAT or not settings.ADO_ORGANIZATION_URL or not identity_id:
         return {"ids": [], "names": []}
@@ -116,12 +135,28 @@ async def get_user_groups(identity_id: str) -> dict[str, list[str]]:
     return groups_data
 
 
-async def get_pr_reviewers(pr_resource: dict) -> list[dict]:
-    return pr_resource.get("reviewers", [])
+async def get_pr_reviewers(
+    pr_resource: dict[str, object],
+) -> list[dict[str, object]]:
+    """Extract the list of reviewers from a pull request resource payload.
+
+    :param pr_resource: Pull request resource dictionary.
+    :returns: List of reviewer identity dictionaries.
+    """
+    reviewers = pr_resource.get("reviewers", [])
+    if isinstance(reviewers, list):
+        return reviewers
+    return []
 
 
-async def get_thread_participants(threads_url: str | None) -> list[dict]:
-    """Fetch all unique authors from a PR comment thread."""
+async def get_thread_participants(
+    threads_url: str | None,
+) -> list[dict[str, object]]:
+    """Fetch all unique authors from a PR comment thread.
+
+    :param threads_url: The REST URL for the PR comment thread.
+    :returns: List of author identity dictionaries.
+    """
     if not settings.ADO_PAT or not threads_url:
         return []
     try:

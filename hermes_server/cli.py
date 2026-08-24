@@ -19,7 +19,11 @@ from .simulate import EVENTS, generate_payload
 # ---------------------------------------------------------------------------
 
 
-def _build_run_parser(sub):
+def _build_run_parser(sub: argparse._SubParsersAction) -> None:
+    """Build command line arguments for the 'run' subcommand.
+
+    :param sub: Subparsers action container.
+    """
     run_p = sub.add_parser("run", help="Start the server")
     run_p.add_argument(
         "--host",
@@ -48,7 +52,11 @@ def _build_run_parser(sub):
     )
 
 
-def _cmd_run(args: argparse.Namespace):
+def _cmd_run(args: argparse.Namespace) -> None:
+    """Execute the 'run' command to start the Uvicorn ASGI server.
+
+    :param args: Parsed command line arguments.
+    """
     if os.name == "nt":
         os.system("")
 
@@ -77,7 +85,11 @@ def _cmd_run(args: argparse.Namespace):
 # ---------------------------------------------------------------------------
 
 
-def _build_simulate_parser(sub):
+def _build_simulate_parser(sub: argparse._SubParsersAction) -> None:
+    """Build command line arguments for the 'simulate' subcommand.
+
+    :param sub: Subparsers action container.
+    """
     sim_p = sub.add_parser(
         "simulate",
         help="Fire a fake ADO webhook at a running server for local testing",
@@ -122,7 +134,11 @@ def _build_simulate_parser(sub):
     )
 
 
-def _cmd_simulate(args: argparse.Namespace):
+def _cmd_simulate(args: argparse.Namespace) -> None:
+    """Execute simulated webhook dispatches against a running Hermes server.
+
+    :param args: Parsed command line arguments.
+    """
     # Human-readable descriptions for the CLI menus
     event_descriptions = {
         "pr-created": "Simulate opening a new pull request",
@@ -224,6 +240,10 @@ def _cmd_simulate(args: argparse.Namespace):
 
 
 def _build_parser() -> argparse.ArgumentParser:
+    """Construct and return the server CLI argument parser.
+
+    :returns: Configured ArgumentParser instance.
+    """
     parser = argparse.ArgumentParser(
         prog="hermes-server",
         description="Hermes — Azure DevOps webhook receiver and notification dispatcher",
@@ -244,7 +264,8 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main():
+def main() -> None:
+    """Main entrypoint for the hermes-server CLI."""
     parser = _build_parser()
     args = parser.parse_args()
 

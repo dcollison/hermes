@@ -315,7 +315,10 @@ class TestManualNotifications:
 
 class TestNotifyScript:
     def test_encode_image(self, tmp_path):
+        # Standard
         import base64
+
+        # Remote
         import notify
 
         img_file = tmp_path / "test.png"
@@ -326,7 +329,10 @@ class TestNotifyScript:
         assert decoded == b"\x89PNG\r\n\x1a\n"
 
     def test_load_dotenv(self, tmp_path):
+        # Standard
         import os
+
+        # Remote
         import notify
 
         env_file = tmp_path / ".env"
@@ -336,7 +342,10 @@ class TestNotifyScript:
             assert os.environ.get("TEST_KEY") == "hello_world"
 
     def test_main_sends_notification(self):
+        # Standard
         import sys
+
+        # Remote
         import notify
 
         mock_resp = MagicMock()

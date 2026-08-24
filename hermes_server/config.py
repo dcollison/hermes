@@ -9,12 +9,15 @@ from pydantic_settings import BaseSettings
 
 
 def _find_env_file() -> str | None:
-    """Search for .env.hermes-server in order:
+    """Search for .env.hermes-server in standard configuration locations.
+
+    Search order:
       1. Current working directory
       2. The directory containing this file (repo root when running from source)
-      3. %APPDATA%/Hermes  (Windows)
+      3. %APPDATA%/Hermes (Windows)
+      4. Fallback: plain .env in the current working directory
 
-    Falls back to a plain .env in the current directory for backwards compatibility.
+    :returns: The first matching path found, or None.
     """
     candidates = [
         Path.cwd() / ".env.hermes-server",

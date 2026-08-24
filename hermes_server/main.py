@@ -15,7 +15,10 @@ from .routers import clients, notifications, webhooks
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Handle startup and shutdown."""
+    """Manage application startup and shutdown lifecycle tasks.
+
+    :param app: FastAPI application instance.
+    """
     await init_db()
     yield
 
@@ -37,7 +40,11 @@ app.include_router(
 
 
 @app.get("/health")
-async def health():
+async def health() -> dict[str, str]:
+    """Health check endpoint for the Hermes server.
+
+    :returns: Dictionary confirming service operational status.
+    """
     return {"status": "ok", "service": "Hermes"}
 
 

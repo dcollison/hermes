@@ -1,4 +1,3 @@
-# Local
 from hermes_client.cli import main
 
 if __name__ == "__main__":

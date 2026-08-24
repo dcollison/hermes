@@ -27,8 +27,11 @@ except ImportError:
     sys.exit(1)
 
 
-def _load_dotenv(path: Path = Path(".env")):
-    """Tiny .env loader — no dependencies."""
+def _load_dotenv(path: Path = Path(".env")) -> None:
+    """Load key-value pairs from a .env file into os.environ.
+
+    :param path: Path to the .env file.
+    """
     if not path.exists():
         return
     with path.open() as f:
@@ -45,9 +48,14 @@ _load_dotenv()
 DEFAULT_SERVER = os.environ.get("HERMES_SERVER_URL", "http://localhost:8000")
 
 
-def _encode_image(path: str) -> str:
-    """Read an image file and return a base64 data URI."""
-    ext = os.path.splitext(path)[1].lower().lstrip(".")
+def _encode_image(path: str | Path) -> str:
+    """Read an image file and return a base64 data URI.
+
+    :param path: Filesystem path to the image file.
+    :returns: Base64 data URI string with appropriate MIME type.
+    """
+    path_str = str(path)
+    ext = os.path.splitext(path_str)[1].lower().lstrip(".")
     mime = {
         "png": "image/png",
         "jpg": "image/jpeg",
@@ -57,20 +65,21 @@ def _encode_image(path: str) -> str:
         "ico": "image/x-icon",
     }.get(ext, "image/png")
 
-    with open(path, "rb") as f:
+    with open(path_str, "rb") as f:
         data = base64.b64encode(f.read()).decode()
     return f"data:{mime};base64,{data}"
 
 
-def main():
+def main() -> None:
+    """Main CLI entrypoint for sending manual notifications."""
     parser = argparse.ArgumentParser(
         description="Send a manual notification to all Hermes clients.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python notify.py "Heads up" "Prod deployment in 5 minutes"
-  python notify.py "Build failed" "Pipeline #42 failed on main" --image fail.png
-  python notify.py "Done" "Release shipped!" --server http://build-server:8000
+  hermes-notify "Heads up" "Prod deployment in 5 minutes"
+  hermes-notify "Build failed" "Pipeline #42 failed on main" --image fail.png
+  hermes-notify "Done" "Release shipped!" --server http://build-server:8000
         """,
     )
 

@@ -40,7 +40,10 @@ _STATUS_ICONS = {
 
 
 def is_dark_mode() -> bool:
-    """Detect if Windows 11 is in dark mode."""
+    """Detect if Windows 11 is currently set to dark theme mode.
+
+    :returns: True if dark mode is active or registry lookup fails; False otherwise.
+    """
     if not winreg:
         return True
     try:
@@ -56,7 +59,11 @@ def is_dark_mode() -> bool:
 
 
 def _get_icon_filename(status_image_key: str | None) -> str | None:
-    """Resolve a status key to a theme-aware icon filename."""
+    """Resolve a status key to a theme-aware icon filename.
+
+    :param status_image_key: Key identifying the notification status icon.
+    :returns: Theme-aware PNG filename or None.
+    """
     if not status_image_key:
         return None
 
@@ -69,13 +76,16 @@ def _get_icon_filename(status_image_key: str | None) -> str | None:
     return f"{base_name}-{suffix}.png"
 
 
-def show_notification(payload: dict):
-    """Display a Windows toast notification from a Hermes payload."""
-    heading = payload.get("heading", __app_name__)
-    body = payload.get("body", "")
-    url = payload.get("url") or ""
-    avatar_b64: str | None = payload.get("avatar_b64")
-    status_image_key: str | None = payload.get("status_image", "fallback")
+def show_notification(payload: dict[str, object]) -> None:
+    """Display a Windows toast notification from a Hermes payload.
+
+    :param payload: Notification dictionary received from the Hermes server.
+    """
+    heading: str = str(payload.get("heading", __app_name__))
+    body: str = str(payload.get("body", ""))
+    url: str = str(payload.get("url") or "")
+    avatar_b64: str | None = payload.get("avatar_b64")  # type: ignore[assignment]
+    status_image_key: str | None = payload.get("status_image", "fallback")  # type: ignore[assignment]
 
     avatar_path: str | None = _save_b64_image(avatar_b64) if avatar_b64 else None
 
@@ -100,7 +110,15 @@ def _display(
     url: str,
     avatar_path: str | None,
     status_image_path: str | None,
-):
+) -> None:
+    """Render the toast notification using win11toast.
+
+    :param heading: Notification title.
+    :param body: Notification body text.
+    :param url: Click-through URL opened when toast is clicked.
+    :param avatar_path: Path to the sender avatar image file, or None.
+    :param status_image_path: Path to the bundled status icon image file, or None.
+    """
     # Log the attempt so Dale can verify the payload is correct
     logger.info(f"[TOAST] {heading}: {body}")
 
@@ -134,7 +152,9 @@ def _display(
 
 def _save_b64_image(b64: str) -> str | None:
     """Decode a base64 data URI and write it to a temp file.
-    :returns: The path.
+
+    :param b64: Base64 data URI string.
+    :returns: The temporary file path, or None if decoding fails.
     """
     try:
         if "," in b64:
@@ -154,7 +174,11 @@ def _save_b64_image(b64: str) -> str | None:
 
 
 def _get_bundled_icon(filename: str | None) -> str | None:
-    """Return the filesystem path to a bundled icon, or None if not found."""
+    """Return the filesystem path to a bundled icon, or None if not found.
+
+    :param filename: Base filename of the bundled PNG icon.
+    :returns: Absolute path to the icon file, or None if not found.
+    """
     if not filename:
         return None
     try:
