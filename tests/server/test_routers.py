@@ -172,8 +172,11 @@ class TestWebhookReceiver:
 
     @pytest.mark.asyncio
     async def test_webhook_invalid_secret_returns_401(self, client):
-        with patch("hermes_server.routers.webhooks.settings") as mock_settings:
-            mock_settings.ADO_WEBHOOK_SECRET = "correct-secret"
+        with patch.object(
+            hermes_server.routers.webhooks.settings,
+            "ADO_WEBHOOK_SECRET",
+            "correct-secret",
+        ):
             resp = await client.post(
                 "/webhooks/ado",
                 json=self._pr_payload(),
@@ -184,14 +187,17 @@ class TestWebhookReceiver:
     @pytest.mark.asyncio
     async def test_webhook_no_secret_configured_accepts_all(self, client):
         with (
-            patch("hermes_server.routers.webhooks.settings") as mock_settings,
+            patch.object(
+                hermes_server.routers.webhooks.settings,
+                "ADO_WEBHOOK_SECRET",
+                None,
+            ),
             patch(
                 "hermes_server.routers.webhooks.format_webhook",
                 new=AsyncMock(return_value=None),
             ),
             patch("hermes_server.routers.webhooks.dispatch", new=AsyncMock()),
         ):
-            mock_settings.ADO_WEBHOOK_SECRET = None
             resp = await client.post("/webhooks/ado", json=self._pr_payload())
         assert resp.status_code == 200
 

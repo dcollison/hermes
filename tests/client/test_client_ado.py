@@ -5,121 +5,51 @@ from unittest.mock import MagicMock, patch
 # Remote
 import pytest
 
-from hermes_client.ado import _auth_headers, resolve_callback_url, resolve_identity
-
-
-class TestAuthHeaders:
-    def test_basic_auth_encoding(self):
-
-        headers = _auth_headers("my-secret-pat")
-        expected_token = base64.b64encode(b":my-secret-pat").decode()
-        assert headers["Authorization"] == f"Basic {expected_token}"
-
-    def test_accept_header_is_json(self):
-        from hermes_client.ado import _auth_headers
-
-        headers = _auth_headers("pat")
-        assert headers["Accept"] == "application/json"
-
-    def test_empty_pat(self):
-        from hermes_client.ado import _auth_headers
-
-        headers = _auth_headers("")
-        expected_token = base64.b64encode(b":").decode()
-        assert headers["Authorization"] == f"Basic {expected_token}"
+from hermes_client.ado import resolve_callback_url, resolve_identity
 
 
 class TestResolveIdentity:
-    def _mock_response(self, status_code=200, json_body=None):
-        mock = MagicMock()
-        mock.status_code = status_code
-        mock.json.return_value = json_body or {}
-        if status_code >= 400:
-            # Remote
-            import httpx
+    def _mock_connection(self, user_id="abc-123", display_name="Alice Smith", error=None):
+        mock_profile = MagicMock()
+        mock_profile.id = user_id
+        mock_profile.display_name = display_name
 
-            mock.raise_for_status.side_effect = httpx.HTTPStatusError(
-                "error",
-                request=MagicMock(),
-                response=mock,
-            )
+        mock_profile_client = MagicMock()
+        if error:
+            mock_profile_client.get_profile.side_effect = error
         else:
-            mock.raise_for_status = MagicMock()
-        return mock
+            mock_profile_client.get_profile.return_value = mock_profile
+
+        mock_conn = MagicMock()
+        mock_conn.clients.get_profile_client.return_value = mock_profile_client
+        return mock_conn
 
     def test_success_returns_user_id_and_display_name(self):
-
-        resp = self._mock_response(
-            json_body={
-                "authenticatedUser": {
-                    "id": "abc-123",
-                    "providerDisplayName": "Alice Smith",
-                },
-            },
-        )
-
-        with patch("httpx.get", return_value=resp):
+        mock_conn = self._mock_connection(user_id="abc-123", display_name="Alice Smith")
+        with patch("hermes_client.ado.Connection", return_value=mock_conn):
             result = resolve_identity("http://ado/DefaultCollection", "my-pat")
 
         assert result["user_id"] == "abc-123"
         assert result["display_name"] == "Alice Smith"
 
-    def test_falls_back_to_customDisplayName(self):
-
-        resp = self._mock_response(
-            json_body={
-                "authenticatedUser": {
-                    "id": "abc-123",
-                    "customDisplayName": "Alice (Custom)",
-                },
-            },
-        )
-        with patch("httpx.get", return_value=resp):
-            result = resolve_identity("http://ado/DefaultCollection", "my-pat")
-        assert result["display_name"] == "Alice (Custom)"
-
     def test_url_has_trailing_slash_stripped(self):
-        from hermes_client.ado import resolve_identity
-
-        resp = self._mock_response(
-            json_body={
-                "authenticatedUser": {"id": "abc-123", "providerDisplayName": "Alice"},
-            },
-        )
-        with patch("httpx.get", return_value=resp) as mock_get:
+        mock_conn = self._mock_connection(user_id="abc-123", display_name="Alice")
+        with patch("hermes_client.ado.Connection", return_value=mock_conn) as conn_cls:
             resolve_identity("http://ado/DefaultCollection/", "my-pat")
-            url_called = mock_get.call_args[0][0]
-            assert not url_called.startswith("http://ado/DefaultCollection//")
+            base_url_called = conn_cls.call_args[1]["base_url"]
+            assert base_url_called == "http://ado/DefaultCollection"
 
     def test_missing_user_id_raises(self):
-
-        resp = self._mock_response(json_body={"authenticatedUser": {}})
-        with patch("httpx.get", return_value=resp):
+        mock_conn = self._mock_connection(user_id="", display_name="Alice")
+        with patch("hermes_client.ado.Connection", return_value=mock_conn):
             with pytest.raises(ValueError, match="no user ID"):
                 resolve_identity("http://ado/DefaultCollection", "my-pat")
 
-    def test_401_raises_http_status_error(self):
-        # Remote
-        import httpx
-
-        from hermes_client.ado import resolve_identity
-
-        resp = self._mock_response(status_code=401)
-        with patch("httpx.get", return_value=resp):
-            with pytest.raises(httpx.HTTPStatusError):
+    def test_api_error_raises_exception(self):
+        mock_conn = self._mock_connection(error=Exception("Unauthorized"))
+        with patch("hermes_client.ado.Connection", return_value=mock_conn):
+            with pytest.raises(Exception, match="Unauthorized"):
                 resolve_identity("http://ado/DefaultCollection", "bad-pat")
-
-    def test_uses_correct_api_endpoint(self):
-
-        resp = self._mock_response(
-            json_body={
-                "authenticatedUser": {"id": "u1", "providerDisplayName": "Alice"},
-            },
-        )
-        with patch("httpx.get", return_value=resp) as mock_get:
-            resolve_identity("http://ado/DefaultCollection", "my-pat")
-            url_called = mock_get.call_args[0][0]
-            assert url_called == "http://ado/DefaultCollection/_apis/connectionData"
 
 
 class TestResolveCallbackUrl:

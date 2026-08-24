@@ -1,5 +1,5 @@
 # Standard
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # Remote
 import pytest
@@ -73,6 +73,37 @@ class TestMentions:
         assert "Backend Team" in result["names"]
         assert "Alice" in result["names"]
         assert result["user_ids"] == ["u1"]
+
+    def test_user_not_mentioned_if_name_in_message(self):
+        result = self._mentions(
+            {"id": "u1", "displayName": "Alice Smith"},
+            message="Bug #5 created by Alice Smith.",
+        )
+        assert result == {"user_ids": [], "names": []}
+
+    def test_user_mentioned_if_name_not_in_message(self):
+        result = self._mentions(
+            {"id": "u1", "displayName": "Alice Smith"},
+            message="Bug #5 created by Bob Jones.",
+        )
+        assert result["user_ids"] == ["u1"]
+        assert result["names"] == ["Alice Smith"]
+
+    def test_string_identity_not_mentioned_if_in_message(self):
+        result = self._mentions(
+            "Alice Smith",
+            message="Alice Smith commented on PR #42",
+        )
+        assert result == {"user_ids": [], "names": []}
+
+    def test_multiple_identities_message_filtering(self):
+        result = self._mentions(
+            {"id": "u1", "displayName": "Alice"},
+            {"id": "u2", "displayName": "Bob"},
+            message="PR created by Alice",
+        )
+        assert result["user_ids"] == ["u2"]
+        assert result["names"] == ["Bob"]
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +201,41 @@ class TestFormatPR:
         assert "commenter-id" not in notif["mentions"]["user_ids"]
         # Verify PR ID was extracted from links
         assert "42" in notif["body"]
+
+    async def test_pr_comment_notifies_thread_participants_excluding_commenter(self):
+        resource = {
+            "author": {"id": "commenter-id", "displayName": "Bob"},
+            "content": "LGTM",
+            "_links": {
+                "threads": {
+                    "href": "http://ado/_apis/git/repositories/MyRepo/pullRequests/42/threads/1",
+                },
+            },
+        }
+        thread_authors = [
+            {"id": "author-1", "displayName": "Alice"},
+            {"id": "author-2", "displayName": "Charlie"},
+            {"id": "commenter-id", "displayName": "Bob"},
+        ]
+        with patch(
+            "hermes_server.formatter.get_thread_participants",
+            new=AsyncMock(return_value=thread_authors),
+        ):
+            from hermes_server.formatter import format_webhook
+
+            event_type = "ms.vss-code.git-pullrequest-comment-event"
+            notif = await format_webhook(
+                event_type,
+                {
+                    "eventType": event_type,
+                    "resource": resource,
+                    "resourceContainers": {"project": {"name": "MyProject"}},
+                },
+            )
+
+        assert "author-1" in notif["mentions"]["user_ids"]
+        assert "author-2" in notif["mentions"]["user_ids"]
+        assert "commenter-id" not in notif["mentions"]["user_ids"]
 
     async def test_unknown_event_returns_none(self):
         from hermes_server.formatter import format_webhook
@@ -400,3 +466,54 @@ class TestFormatPipeline:
         }
         notif = await format_webhook("ms.vss-release.release-created-event", payload)
         assert notif["status_image"] is None
+
+
+class TestGetThreadParticipants:
+    async def test_empty_or_missing_url(self):
+        from hermes_server.ado_client import get_thread_participants
+
+        assert await get_thread_participants("") == []
+        assert await get_thread_participants(None) == []
+
+    async def test_successful_fetch(self):
+        from hermes_server.ado_client import get_thread_participants
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {
+            "comments": [
+                {"author": {"id": "u1", "displayName": "Alice"}},
+                {"author": {"id": "u2", "displayName": "Bob"}},
+                {"content": "no author"},
+            ],
+        }
+        mock_http = MagicMock()
+        mock_http.__aenter__ = AsyncMock(return_value=mock_http)
+        mock_http.__aexit__ = AsyncMock(return_value=False)
+        mock_http.get = AsyncMock(return_value=mock_resp)
+
+        with (
+            patch("hermes_server.ado_client.settings.ADO_PAT", "pat"),
+            patch("httpx.AsyncClient", return_value=mock_http),
+        ):
+            authors = await get_thread_participants("http://ado/thread/1")
+
+        assert len(authors) == 2
+        assert authors[0]["id"] == "u1"
+        assert authors[1]["id"] == "u2"
+
+    async def test_http_error_returns_empty_list(self):
+        from hermes_server.ado_client import get_thread_participants
+
+        mock_http = MagicMock()
+        mock_http.__aenter__ = AsyncMock(return_value=mock_http)
+        mock_http.__aexit__ = AsyncMock(return_value=False)
+        mock_http.get = AsyncMock(side_effect=Exception("network error"))
+
+        with (
+            patch("hermes_server.ado_client.settings.ADO_PAT", "pat"),
+            patch("httpx.AsyncClient", return_value=mock_http),
+        ):
+            authors = await get_thread_participants("http://ado/thread/1")
+
+        assert authors == []

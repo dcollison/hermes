@@ -118,3 +118,23 @@ async def get_user_groups(identity_id: str) -> dict[str, list[str]]:
 
 async def get_pr_reviewers(pr_resource: dict) -> list[dict]:
     return pr_resource.get("reviewers", [])
+
+
+async def get_thread_participants(threads_url: str | None) -> list[dict]:
+    """Fetch all unique authors from a PR comment thread."""
+    if not settings.ADO_PAT or not threads_url:
+        return []
+    try:
+        async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
+            resp = await client.get(threads_url, headers=_auth_headers())
+            if resp.status_code == 200:
+                thread = resp.json()
+                authors = [
+                    c.get("author")
+                    for c in thread.get("comments", [])
+                    if c.get("author")
+                ]
+                return authors
+    except Exception as e:
+        logger.warning(f"Failed to fetch PR thread participants: {e}")
+    return []

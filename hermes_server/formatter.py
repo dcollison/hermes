@@ -3,7 +3,7 @@ import logging
 import re
 
 # Local
-from .ado_client import get_user_avatar_b64
+from .ado_client import get_thread_participants, get_user_avatar_b64
 
 logger = logging.getLogger(__name__)
 
@@ -33,9 +33,11 @@ def _extract_message(payload: dict) -> tuple[str, str]:
 def _mentions(
     *identities: dict | str | None,
     actor_id: str | None = None,
+    message: str | None = None,
 ) -> dict:
     """Build a mentions dict from ADO identity dicts or plain strings.
     The actor is excluded so they don't get notified of their own actions.
+    Users whose names appear in the notification message are also excluded.
     """
     user_ids: list[str] = []
     names: list[str] = []
@@ -48,7 +50,11 @@ def _mentions(
 
         if isinstance(ident, str):
             name = ident.strip()
-            if name and name not in seen_names and name != actor_id:
+            if not name or name == actor_id:
+                continue
+            if message and name in message:
+                continue
+            if name not in seen_names:
                 seen_names.add(name)
                 names.append(name)
             continue
@@ -57,6 +63,9 @@ def _mentions(
         name = ident.get("displayName", "")
 
         if uid and uid == actor_id:
+            continue
+
+        if message and name and name in message:
             continue
 
         if uid and uid not in seen_ids:
@@ -147,6 +156,12 @@ async def _format_pr(
         actor = pr.get("createdBy", {})
 
     pr_id = pr.get("pullRequestId", resource.get("pullRequestId", ""))
+    if not pr_id:
+        threads_href = resource.get("_links", {}).get("threads", {}).get("href", "")
+        m = re.search(r"/pullRequests/(\d+)", threads_href)
+        if m:
+            pr_id = m.group(1)
+
     status = pr.get("status", "")
     created_by = pr.get("createdBy", {})
     reviewers: list[dict] = pr.get("reviewers", [])
@@ -158,10 +173,12 @@ async def _format_pr(
     actor_id = actor.get("id")
     actor_name = actor.get("displayName", "Someone")
 
+    text, link = _extract_message(payload)
+
     if event_type == "git.pullrequest.merged":
         # Notify reviewers AND the author — even if the author is the one
         # who clicked merge, they still want the confirmation.
-        mentioned = _mentions(*reviewers, actor_id=actor_id)
+        mentioned = _mentions(*reviewers, actor_id=actor_id, message=text)
         author_id = created_by.get("id")
         if author_id and author_id not in mentioned["user_ids"]:
             mentioned["user_ids"].append(author_id)
@@ -169,11 +186,18 @@ async def _format_pr(
             if author_name and author_name not in mentioned["names"]:
                 mentioned["names"].append(author_name)
     elif event_type == "ms.vss-code.git-pullrequest-comment-event":
-        mentioned = _mentions(*reviewers, created_by, actor_id=actor_id)
+        threads_url = resource.get("_links", {}).get("threads", {}).get("href", "")
+        thread_participants = await get_thread_participants(threads_url)
+        mentioned = _mentions(
+            *thread_participants,
+            *reviewers,
+            created_by,
+            actor_id=actor_id,
+            message=text,
+        )
     else:
-        mentioned = _mentions(*reviewers, actor_id=actor_id)
+        mentioned = _mentions(*reviewers, actor_id=actor_id, message=text)
 
-    text, link = _extract_message(payload)
     url = link or (
         pr.get("url")
         or pr.get("remoteUrl")
@@ -276,7 +300,7 @@ async def _format_workitem(
     resolved_url = link or url
 
     avatar = await get_user_avatar_b64(actor_id)
-    mentioned = _mentions(assigned_to_raw, actor_id=actor_id)
+    mentioned = _mentions(assigned_to_raw, actor_id=actor_id, message=text)
 
     return {
         "event_type": "workitem",
@@ -348,7 +372,7 @@ async def _format_pipeline(
         status_image = _BUILD_STATUS_IMAGE.get(result)
         default_body = f"{definition} #{build_num} {result}"
         # Always notify the person who triggered the build — it's their result
-        mentioned = _mentions(requested_for, actor_id=None)
+        mentioned = _mentions(requested_for, actor_id=None, message=text)
 
     elif event_type == "ms.vss-release.release-created-event":
         rel_name = resource.get("name", "Release")
@@ -361,7 +385,7 @@ async def _format_pipeline(
         default_body = f"{actor_name} created {rel_name}" + (
             f" ({definition})" if definition else ""
         )
-        mentioned = _mentions(actor_id=actor_id)
+        mentioned = _mentions(actor_id=actor_id, message=text)
 
     elif event_type == "ms.vss-release.deployment-completed-event":
         env = resource.get("environment", {})
@@ -379,7 +403,7 @@ async def _format_pipeline(
         heading = f"Deployment {deploy_status.title()}"
         default_body = f"{rel_name} → {env_name}: {deploy_status}"
         status_image = _DEPLOY_STATUS_IMAGE.get(deploy_status)
-        mentioned = _mentions(requested_for, actor_id=None)
+        mentioned = _mentions(requested_for, actor_id=None, message=text)
 
     elif event_type == "ms.vss-release.release-abandoned-event":
         rel_name = resource.get("name", "Release")
@@ -390,7 +414,7 @@ async def _format_pipeline(
         heading = "Release Abandoned"
         default_body = f"{actor_name} abandoned {rel_name}"
         status_image = "cancelled"
-        mentioned = _mentions(actor_id=actor_id)
+        mentioned = _mentions(actor_id=actor_id, message=text)
 
     else:
         actor_name = "System"
