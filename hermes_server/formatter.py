@@ -1,4 +1,5 @@
 # Standard
+import html
 import logging
 import re
 
@@ -23,11 +24,16 @@ def _extract_message(payload: dict) -> tuple[str, str]:
     text = (msg.get("text") or "").strip()
 
     link = ""
-    html = msg.get("html", "")
-    md = msg.get("markdown", "")
-    m = _HTML_HREF_RE.search(html)
-    if m or (m := _MD_LINK_RE.search(md)):
-        link = m.group(1)
+    html_content = msg.get("html", "")
+    md_content = msg.get("markdown", "")
+    m = _HTML_HREF_RE.search(html_content)
+    if m or (m := _MD_LINK_RE.search(md_content)):
+        link = m.group(1).strip()
+
+    if link:
+        link = html.unescape(link)
+        while "&amp;" in link:
+            link = link.replace("&amp;", "&")
 
     return text, link
 
@@ -479,13 +485,16 @@ async def _format_pipeline(
 
 
 def _clean_url(url: str) -> str:
-    """Clean raw API URLs to ensure only browser-friendly URLs are provided.
+    """Clean raw API URLs and HTML-escaped characters to ensure browser-friendly URLs.
 
     :param url: Raw URL string.
     :returns: Sanitized URL string or empty string.
     """
     if not url:
         return ""
+    url = html.unescape(url.strip())
+    while "&amp;" in url:
+        url = url.replace("&amp;", "&")
     if "/_apis/" in url and "/_workitems" not in url:
         return ""
     return url

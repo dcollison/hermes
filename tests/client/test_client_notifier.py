@@ -247,3 +247,30 @@ class TestShowNotification:
         _, _, _, avatar, status_img = mock_display.call_args[0]
         assert avatar is None
         assert status_img is None
+
+    def test_show_notification_sanitizes_html_entities_in_url(self):
+        payload = {
+            "heading": "PR Updated",
+            "body": "Iteration updated",
+            "url": "http://ado/pr/1?_a=overview&amp;iteration=2",
+            "avatar_b64": None,
+            "status_image": None,
+            "event_type": "pr",
+        }
+        with (
+            patch("hermes_client.notifier._display") as mock_display,
+            patch("hermes_client.notifier._get_bundled_icon", return_value=None),
+        ):
+            show_notification(payload)
+
+        _, _, url_passed, _, _ = mock_display.call_args[0]
+        assert url_passed == "http://ado/pr/1?_a=overview&iteration=2"
+
+
+class TestNotifierCleanUrl:
+    def test_clean_url_unescapes_entities(self):
+        from hermes_client.notifier import _clean_url
+
+        assert _clean_url("http://ado/pr/1?a=1&amp;b=2") == "http://ado/pr/1?a=1&b=2"
+        assert _clean_url("http://ado/pr/1?a=1&amp;amp;b=2") == "http://ado/pr/1?a=1&b=2"
+        assert _clean_url("") == ""

@@ -515,3 +515,30 @@ class TestGetThreadParticipants:
             authors = await get_thread_participants("http://ado/thread/1")
 
         assert authors == []
+
+
+class TestCleanUrl:
+    def test_unescapes_ampersand_entities(self):
+        from hermes_server.formatter import _clean_url
+
+        url = "http://ado/project/_git/repo/pullrequest/123?_a=overview&amp;iteration=1"
+        assert _clean_url(url) == "http://ado/project/_git/repo/pullrequest/123?_a=overview&iteration=1"
+
+    def test_unescapes_double_encoded_ampersand(self):
+        from hermes_server.formatter import _clean_url
+
+        url = "http://ado/project/_git/repo/pullrequest/123?_a=overview&amp;amp;iteration=1"
+        assert _clean_url(url) == "http://ado/project/_git/repo/pullrequest/123?_a=overview&iteration=1"
+
+    def test_extract_message_unescapes_html_href(self):
+        from hermes_server.formatter import _extract_message
+
+        payload = {
+            "message": {
+                "text": "PR created",
+                "html": '<a href="http://ado/pr/1?foo=bar&amp;baz=qux">View PR</a>',
+            },
+        }
+        text, link = _extract_message(payload)
+        assert text == "PR created"
+        assert link == "http://ado/pr/1?foo=bar&baz=qux"

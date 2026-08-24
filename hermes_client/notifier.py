@@ -1,5 +1,6 @@
 # Standard
 import base64
+import html
 import logging
 import os
 import tempfile
@@ -77,6 +78,20 @@ def _get_icon_filename(status_image_key: str | None) -> str | None:
     return f"{base_name}-{suffix}.png"
 
 
+def _clean_url(url: str) -> str:
+    """Sanitize a notification click URL by unescaping HTML entities.
+
+    :param url: Raw URL string.
+    :returns: Cleaned URL string.
+    """
+    if not url:
+        return ""
+    url = html.unescape(url.strip())
+    while "&amp;" in url:
+        url = url.replace("&amp;", "&")
+    return url
+
+
 def show_notification(payload: dict[str, object]) -> None:
     """Display a Windows toast notification from a Hermes payload.
 
@@ -84,7 +99,7 @@ def show_notification(payload: dict[str, object]) -> None:
     """
     heading: str = str(payload.get("heading", __app_name__))
     body: str = str(payload.get("body", ""))
-    url: str = str(payload.get("url") or "")
+    url: str = _clean_url(str(payload.get("url") or ""))
     avatar_b64: str | None = payload.get("avatar_b64")  # type: ignore[assignment]
     status_image_key: str | None = payload.get("status_image", "fallback")  # type: ignore[assignment]
 
@@ -120,6 +135,7 @@ def _display(
     :param avatar_path: Path to the sender avatar image file, or None.
     :param status_image_path: Path to the bundled status icon image file, or None.
     """
+    url = _clean_url(url)
     # Log the attempt so Dale can verify the payload is correct
     logger.info(f"[TOAST] {heading}: {body}")
 
