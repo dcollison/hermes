@@ -97,6 +97,20 @@ Examples:
         metavar="URL",
         help="Optional click-through URL attached to the notification",
     )
+    parser.add_argument(
+        "--filter-name",
+        "-f",
+        default=None,
+        metavar="NAME",
+        help="Filter target clients by name substring (e.g. Alice)",
+    )
+    parser.add_argument(
+        "--project",
+        "-p",
+        default=None,
+        metavar="PROJECT",
+        help="Optional project name tag for the notification",
+    )
 
     args = parser.parse_args()
 
@@ -105,6 +119,8 @@ Examples:
         "heading": args.title,
         "body": args.message,
         "url": args.url,
+        "filter_name_contains": args.filter_name,
+        "filter_project": args.project,
     }
 
     if args.image:

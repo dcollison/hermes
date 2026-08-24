@@ -10,6 +10,7 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 import hermes_server.database as db
+import hermes_server.routers.webhooks as webhooks_router
 from hermes_server.main import app
 
 # ---------------------------------------------------------------------------
@@ -173,7 +174,7 @@ class TestWebhookReceiver:
     @pytest.mark.asyncio
     async def test_webhook_invalid_secret_returns_401(self, client):
         with patch.object(
-            hermes_server.routers.webhooks.settings,
+            webhooks_router.settings,
             "ADO_WEBHOOK_SECRET",
             "correct-secret",
         ):
@@ -188,7 +189,7 @@ class TestWebhookReceiver:
     async def test_webhook_no_secret_configured_accepts_all(self, client):
         with (
             patch.object(
-                hermes_server.routers.webhooks.settings,
+                webhooks_router.settings,
                 "ADO_WEBHOOK_SECRET",
                 None,
             ),
@@ -254,10 +255,50 @@ class TestManualNotifications:
                 "subscriptions": ["pr"],  # not subscribed to manual
             },
         )
+    @pytest.mark.asyncio
+    async def test_send_manual_filter_name_contains(self, client):
+        await client.post(
+            "/clients/register",
+            json={**REGISTER_BODY, "subscriptions": ["manual"]},
+        )
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient") as mock_http:
+            mock_http.return_value.__aenter__ = AsyncMock(
+                return_value=mock_http.return_value,
+            )
+            mock_http.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_http.return_value.post = AsyncMock(return_value=mock_resp)
+
+            resp = await client.post(
+                "/notifications/send",
+                json={
+                    "heading": "Deploy",
+                    "body": "Going live",
+                    "filter_name_contains": "Alice",
+                },
+            )
+
+        assert resp.status_code == 200
+        assert resp.json()["dispatched_to"] == 1
+
+    @pytest.mark.asyncio
+    async def test_send_manual_filter_name_no_match(self, client):
+        await client.post(
+            "/clients/register",
+            json={**REGISTER_BODY, "subscriptions": ["manual"]},
+        )
         resp = await client.post(
             "/notifications/send",
-            json={"heading": "Hello", "body": "World"},
+            json={
+                "heading": "Deploy",
+                "body": "Going live",
+                "filter_name_contains": "Bob",
+            },
         )
+        assert resp.status_code == 200
         assert resp.json()["dispatched_to"] == 0
 
     @pytest.mark.asyncio
@@ -270,3 +311,48 @@ class TestManualNotifications:
     async def test_get_notification_logs_limit_param(self, client):
         resp = await client.get("/notifications/logs?limit=5")
         assert resp.status_code == 200
+
+
+class TestNotifyScript:
+    def test_encode_image(self, tmp_path):
+        import base64
+        import notify
+
+        img_file = tmp_path / "test.png"
+        img_file.write_bytes(b"\x89PNG\r\n\x1a\n")
+        uri = notify._encode_image(str(img_file))
+        assert uri.startswith("data:image/png;base64,")
+        decoded = base64.b64decode(uri.split(",")[1])
+        assert decoded == b"\x89PNG\r\n\x1a\n"
+
+    def test_load_dotenv(self, tmp_path):
+        import os
+        import notify
+
+        env_file = tmp_path / ".env"
+        env_file.write_text("TEST_KEY=hello_world\n# Comment\nINVALID\n", encoding="utf-8")
+        with patch.dict("os.environ", {}, clear=True):
+            notify._load_dotenv(env_file)
+            assert os.environ.get("TEST_KEY") == "hello_world"
+
+    def test_main_sends_notification(self):
+        import sys
+        import notify
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        mock_resp.json.return_value = {"message": "Notification sent to 1 client(s)"}
+
+        test_args = ["notify.py", "Test Title", "Test Message", "--filter-name", "Alice"]
+        with (
+            patch.object(sys, "argv", test_args),
+            patch("httpx.post", return_value=mock_resp) as mock_post,
+        ):
+            notify.main()
+
+        mock_post.assert_called_once()
+        call_kwargs = mock_post.call_args[1]
+        payload = call_kwargs["json"]
+        assert payload["heading"] == "Test Title"
+        assert payload["body"] == "Test Message"
+        assert payload["filter_name_contains"] == "Alice"

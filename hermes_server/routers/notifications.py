@@ -26,6 +26,8 @@ class ManualNotificationRequest(BaseModel):
     body: str
     url: str | None = None
     avatar_b64: str | None = None
+    filter_name_contains: str | None = None
+    filter_project: str | None = None
 
 
 class ManualNotificationResponse(BaseModel):
@@ -49,10 +51,19 @@ async def send_manual_notification(body: ManualNotificationRequest):
         )
     ]
 
+    if body.filter_name_contains:
+        needle = body.filter_name_contains.lower()
+        targets = [
+            c
+            for c in targets
+            if needle in c.get("name", "").lower()
+            or needle in c.get("display_name", "").lower()
+        ]
+
     if not targets:
         return ManualNotificationResponse(
             dispatched_to=0,
-            message="No clients subscribed to manual notifications",
+            message="No matching clients subscribed to manual notifications",
         )
 
     notification = {
@@ -60,7 +71,7 @@ async def send_manual_notification(body: ManualNotificationRequest):
         "heading": body.heading,
         "body": body.body,
         "url": body.url or "",
-        "project": "",
+        "project": body.filter_project or "",
         "avatar_b64": body.avatar_b64,
         "actor": "Hermes",
         "actor_id": None,

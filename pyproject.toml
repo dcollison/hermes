@@ -32,9 +32,10 @@ dev = [
 [project.scripts]
 hermes-server = "hermes_server.cli:main"
 hermes-client = "hermes_client.cli:main"
+hermes-notify = "notify:main"
 
 [tool.uv.build-backend]
-module-name = ["hermes_server", "hermes_client"]
+module-name = ["hermes_server", "hermes_client", "notify"]
 module-root = ""
 
 [tool.pytest.ini_options]
