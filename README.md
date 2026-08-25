@@ -95,7 +95,7 @@ Hermes stores all state in the `data/` directory:
 
 4. **Auto-start on login (recommended)**
 
-   Install the background Task Scheduler task to run the client invisibly on Windows logon:
+   Install the background Startup shortcut to run the client invisibly on Windows logon:
    ```bash
    hermes-client startup install
    ```

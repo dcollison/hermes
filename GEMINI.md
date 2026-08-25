@@ -20,7 +20,7 @@ This document serves as the guide for AI coding assistants working in the Hermes
 2. **`hermes_client`** (FastAPI + Windows Toast):
    - Runs on developer machines (default port `9000`).
    - Listens on `POST /notify` to display Windows 11 toast notifications via `win11toast`.
-   - Supports background Windows logon startup via Task Scheduler (`hermes-client startup install`).
+   - Supports background Windows logon startup via Startup folder shortcut (`hermes-client startup install`).
 
 3. **`notify.py`** (`hermes-notify`):
    - Standalone CLI utility for sending manual or CI/CD broadcast notifications to the Hermes server.

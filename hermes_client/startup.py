@@ -2,24 +2,48 @@
 import os
 import subprocess
 import sys
-import tempfile
-import textwrap
 from pathlib import Path
 
-TASK_NAME = "HermesNotificationClient"
-TASK_DESCRIPTION = "Hermes — Azure DevOps notification client"
+SHORTCUT_NAME = "Hermes Client.lnk"
+SHORTCUT_DESCRIPTION = "Hermes — Azure DevOps notification client"
+LEGACY_TASK_NAME = "HermesNotificationClient"
+
+
+def _get_startup_dir() -> Path:
+    """Return the Windows user Startup directory path.
+
+    :returns: Path to the user's Startup directory.
+    """
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        return Path(appdata) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
+    return (
+        Path.home()
+        / "AppData"
+        / "Roaming"
+        / "Microsoft"
+        / "Windows"
+        / "Start Menu"
+        / "Programs"
+        / "Startup"
+    )
+
+
+def _get_shortcut_path() -> Path:
+    """Return the full Path to the Hermes Client shortcut in the Startup folder.
+
+    :returns: Path to the .lnk file.
+    """
+    return _get_startup_dir() / SHORTCUT_NAME
 
 
 def _resolve_paths() -> tuple[str, str]:
-    """Return (pythonw_path, script_path) for use in the Task Scheduler command.
+    """Return (pythonw_path, script_path) for use in the startup shortcut.
 
     uv installs console scripts as .exe wrappers that embed the full path to
     the venv's Python, so we don't need to locate Python separately — we just
-    need the script exe itself.  We use sys.argv[0] which is always the path
+    need the script exe itself. We use sys.argv[0] which is always the path
     of the currently-running script, regardless of how uv organised it.
-
-    The Task Scheduler entry runs:
-        pythonw.exe  <script>.exe
 
     :returns: Tuple containing (pythonw_executable_path, client_script_path).
     """
@@ -36,90 +60,133 @@ def _resolve_paths() -> tuple[str, str]:
         pythonw = script.parent / "pythonw.exe"
 
     if not pythonw.exists():
-        # Last resort — fall back to the console interpreter (will flash a window)
+        # Last resort — fall back to the console interpreter
         pythonw = Path(sys.executable)
 
     return str(pythonw), str(script)
 
 
-def _build_task_xml(pythonw: str, script: str) -> str:
-    """Generate a Task Scheduler XML definition.
+def _ps_escape(s: str) -> str:
+    """Escape a string for use in a single-quoted PowerShell string literal.
 
-    :param pythonw: Absolute path to the pythonw.exe launcher.
-    :param script: Absolute path to the hermes-client executable script.
-    :returns: XML configuration string for Task Scheduler.
+    :param s: Input string.
+    :returns: Escaped string enclosed in single quotes.
     """
-    username = f"{os.environ.get('USERDOMAIN', '.')}\\{os.environ.get('USERNAME', '')}"
-
-    return textwrap.dedent(f"""\
-        <?xml version="1.0" encoding="UTF-16"?>
-        <Task version="1.4"
-              xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-          <RegistrationInfo>
-            <Description>{TASK_DESCRIPTION}</Description>
-          </RegistrationInfo>
-          <Triggers>
-            <LogonTrigger>
-              <Enabled>true</Enabled>
-              <UserId>{username}</UserId>
-            </LogonTrigger>
-          </Triggers>
-          <Principals>
-            <Principal id="Author">
-              <LogonType>InteractiveToken</LogonType>
-              <RunLevel>LeastPrivilege</RunLevel>
-            </Principal>
-          </Principals>
-          <Settings>
-            <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-            <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-            <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-            <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
-            <Priority>7</Priority>
-          </Settings>
-          <Actions Context="Author">
-            <Exec>
-              <Command>{pythonw}</Command>
-              <Arguments>"{script}" run</Arguments>
-            </Exec>
-          </Actions>
-        </Task>
-    """)
+    return "'" + s.replace("'", "''") + "'"
 
 
-def _run(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
-    """Run a subprocess command capturing textual output.
+def _create_shortcut(
+    shortcut_path: Path,
+    target_exe: str,
+    arguments: str,
+    working_dir: str,
+    description: str,
+) -> None:
+    """Create a Windows .lnk shortcut using PowerShell and WScript.Shell.
 
-    :param args: Command line argument tokens.
-    :param check: Whether to raise CalledProcessError on non-zero exit code.
-    :returns: CompletedProcess instance containing captured output.
+    :param shortcut_path: Destination path for the .lnk shortcut file.
+    :param target_exe: Target executable (e.g. pythonw.exe).
+    :param arguments: Command line arguments for the target.
+    :param working_dir: Initial working directory for the process.
+    :param description: Description metadata for the shortcut.
     """
-    return subprocess.run(args, capture_output=True, text=True, check=check)
+    shortcut_path.parent.mkdir(parents=True, exist_ok=True)
+    ps_script = (
+        "$ws = New-Object -ComObject WScript.Shell; "
+        f"$s = $ws.CreateShortcut({_ps_escape(str(shortcut_path))}); "
+        f"$s.TargetPath = {_ps_escape(target_exe)}; "
+        f"$s.Arguments = {_ps_escape(arguments)}; "
+        f"$s.WorkingDirectory = {_ps_escape(working_dir)}; "
+        f"$s.Description = {_ps_escape(description)}; "
+        "$s.Save()"
+    )
+    subprocess.run(
+        ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+
+def _read_shortcut(shortcut_path: Path) -> dict[str, str] | None:
+    """Read target path and arguments from an existing Windows .lnk shortcut.
+
+    :param shortcut_path: Path to the .lnk file.
+    :returns: Dictionary with shortcut properties, or None if read fails.
+    """
+    if not shortcut_path.exists():
+        return None
+    ps_script = (
+        "$ws = New-Object -ComObject WScript.Shell; "
+        f"$s = $ws.CreateShortcut({_ps_escape(str(shortcut_path))}); "
+        "Write-Output $s.TargetPath; "
+        "Write-Output $s.Arguments; "
+        "Write-Output $s.WorkingDirectory; "
+        "Write-Output $s.Description"
+    )
+    try:
+        res = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        lines = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+        return {
+            "target_path": lines[0] if len(lines) > 0 else "",
+            "arguments": lines[1] if len(lines) > 1 else "",
+            "working_directory": lines[2] if len(lines) > 2 else "",
+            "description": lines[3] if len(lines) > 3 else "",
+        }
+    except Exception:
+        return None
+
+
+def _cleanup_legacy_task() -> None:
+    """Silently delete any legacy Task Scheduler task from previous Hermes versions."""
+    try:
+        subprocess.run(
+            ["schtasks", "/Delete", "/TN", LEGACY_TASK_NAME, "/F"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except Exception:
+        pass
+
+
+def _ensure_utf8_output() -> None:
+    """Ensure standard output streams handle UTF-8 characters on Windows."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 
 def install() -> None:
-    """Register the Hermes client as a Task Scheduler logon task."""
+    """Register the Hermes client in the Windows user Startup folder."""
+    _ensure_utf8_output()
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         sys.exit(1)
 
     pythonw, script = _resolve_paths()
-    xml = _build_task_xml(pythonw, script)
-
-    # schtasks /Create /XML requires a file path, not stdin
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".xml",
-        delete=False,
-        encoding="utf-16",
-    ) as f:
-        f.write(xml)
-        xml_path = f.name
+    shortcut_path = _get_shortcut_path()
+    arguments = f'"{script}" run'
+    working_dir = str(Path.home())
 
     try:
-        _run("schtasks", "/Delete", "/TN", TASK_NAME, "/F", check=False)
-        _run("schtasks", "/Create", "/TN", TASK_NAME, "/XML", xml_path)
-        print(f"✓ Startup task '{TASK_NAME}' installed.")
+        _create_shortcut(
+            shortcut_path=shortcut_path,
+            target_exe=pythonw,
+            arguments=arguments,
+            working_dir=working_dir,
+            description=SHORTCUT_DESCRIPTION,
+        )
+        _cleanup_legacy_task()
+
+        print("✓ Startup shortcut installed.")
+        print(f"  Location : {shortcut_path}")
         print(f"  Launcher : {pythonw}")
         print(f"  Script   : {script}")
         print()
@@ -128,40 +195,55 @@ def install() -> None:
         print()
         print("  NOTE: Re-run this command after upgrading hermes-client,")
         print("  as the stored paths will change with a new installation.")
-    except subprocess.CalledProcessError as e:
-        print(f"ERROR: Could not create scheduled task:\n{e.stderr}", file=sys.stderr)
+    except Exception as e:
+        print(f"ERROR: Could not create startup shortcut:\n{e}", file=sys.stderr)
         sys.exit(1)
-    finally:
-        try:
-            os.unlink(xml_path)
-        except OSError:
-            pass
 
 
 def remove() -> None:
-    """Remove the Hermes client startup task."""
+    """Remove the Hermes client from the Windows Startup folder."""
+    _ensure_utf8_output()
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         sys.exit(1)
 
-    result = _run("schtasks", "/Delete", "/TN", TASK_NAME, "/F", check=False)
-    if result.returncode == 0:
-        print(f"✓ Startup task '{TASK_NAME}' removed.")
+    shortcut_path = _get_shortcut_path()
+    removed = False
+
+    if shortcut_path.exists():
+        try:
+            shortcut_path.unlink()
+            removed = True
+        except OSError as e:
+            print(f"ERROR: Could not delete startup shortcut:\n{e}", file=sys.stderr)
+            sys.exit(1)
+
+    _cleanup_legacy_task()
+
+    if removed:
+        print(f"✓ Startup shortcut removed from '{shortcut_path}'.")
     else:
-        print(f"Task '{TASK_NAME}' was not found — nothing to remove.")
+        print("Startup shortcut was not found — nothing to remove.")
 
 
 def status() -> None:
-    """Print whether the startup task exists and is enabled."""
+    """Print whether the startup shortcut exists and its configuration."""
+    _ensure_utf8_output()
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         return
 
-    result = _run("schtasks", "/Query", "/TN", TASK_NAME, "/FO", "LIST", check=False)
-    if result.returncode != 0:
-        print(f"Startup task '{TASK_NAME}' is NOT installed.")
+    shortcut_path = _get_shortcut_path()
+    if not shortcut_path.exists():
+        print("Startup shortcut is NOT installed.")
     else:
-        print(f"Startup task '{TASK_NAME}' is installed.\n")
-        for line in result.stdout.splitlines():
-            if any(k in line for k in ("Task Name", "Status", "Next Run", "Last Run")):
-                print(f"  {line}")
+        print("Startup shortcut is installed.\n")
+        print(f"  Location : {shortcut_path}")
+        info = _read_shortcut(shortcut_path)
+        if info:
+            if info.get("target_path"):
+                print(f"  Launcher : {info['target_path']}")
+            if info.get("arguments"):
+                print(f"  Arguments: {info['arguments']}")
+            if info.get("working_directory"):
+                print(f"  WorkDir  : {info['working_directory']}")

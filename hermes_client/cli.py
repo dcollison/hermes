@@ -3,6 +3,7 @@ import argparse
 import getpass
 import logging
 import os
+import sys
 import threading
 import time
 
@@ -384,15 +385,20 @@ def _build_parser() -> argparse.ArgumentParser:
     startup_p = sub.add_parser("startup", help="Manage Windows startup integration")
     startup_sub = startup_p.add_subparsers(dest="startup_command", metavar="ACTION")
     startup_sub.required = True
-    startup_sub.add_parser("install", help="Register as a Windows logon task")
-    startup_sub.add_parser("remove", help="Remove the Windows logon task")
-    startup_sub.add_parser("status", help="Show whether the task is registered")
+    startup_sub.add_parser("install", help="Register as a Windows logon startup shortcut")
+    startup_sub.add_parser("remove", help="Remove the Windows logon startup shortcut")
+    startup_sub.add_parser("status", help="Show whether startup integration is installed")
 
     return parser
 
 
 def main() -> None:
     """Main entrypoint for the hermes-client CLI."""
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
     parser = _build_parser()
     args = parser.parse_args()
 

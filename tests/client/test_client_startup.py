@@ -1,15 +1,28 @@
 # Standard
+from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+# Remote
+import pytest
 
 from hermes_client import startup
 
 
-class TestStartupTask:
-    def test_build_task_xml(self):
-        xml = startup._build_task_xml("C:\\Python\\pythonw.exe", "C:\\Scripts\\hermes-client.exe")
-        assert "HermesNotificationClient" in startup.TASK_NAME
-        assert "<Command>C:\\Python\\pythonw.exe</Command>" in xml
-        assert '<Arguments>"C:\\Scripts\\hermes-client.exe" run</Arguments>' in xml
+class TestStartupShortcut:
+    def test_get_startup_dir(self):
+        with patch.dict("os.environ", {"APPDATA": "C:\\Users\\Alice\\AppData\\Roaming"}):
+            dir_path = startup._get_startup_dir()
+            assert "Startup" in str(dir_path)
+            assert "Alice" in str(dir_path)
+
+    def test_get_shortcut_path(self):
+        with patch.dict("os.environ", {"APPDATA": "C:\\Users\\Alice\\AppData\\Roaming"}):
+            path = startup._get_shortcut_path()
+            assert path.name == startup.SHORTCUT_NAME
+
+    def test_ps_escape(self):
+        assert startup._ps_escape("foo'bar") == "'foo''bar'"
+        assert startup._ps_escape("simple") == "'simple'"
 
     def test_resolve_paths_fallback(self):
         with (
@@ -19,39 +32,122 @@ class TestStartupTask:
             pythonw, script = startup._resolve_paths()
             assert "python.exe" in pythonw
 
-    def test_install_invokes_schtasks(self):
+    def test_create_shortcut_invokes_powershell(self):
         mock_run = MagicMock()
         with (
+            patch("subprocess.run", mock_run),
+            patch("pathlib.Path.mkdir"),
+        ):
+            startup._create_shortcut(
+                Path("C:\\Startup\\Hermes Client.lnk"),
+                "C:\\Python\\pythonw.exe",
+                '"C:\\Scripts\\hermes-client.exe" run',
+                "C:\\Users\\Alice",
+                "Hermes",
+            )
+
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert "powershell" in args
+        assert "CreateShortcut" in args[4]
+
+    def test_read_shortcut_not_found(self):
+        with patch("pathlib.Path.exists", return_value=False):
+            assert startup._read_shortcut(Path("C:\\nonexistent.lnk")) is None
+
+    def test_read_shortcut_success(self):
+        mock_res = MagicMock()
+        mock_res.stdout = "C:\\pythonw.exe\n\"client.exe\" run\nC:\\Users\\Alice\nHermes\n"
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch("subprocess.run", return_value=mock_res),
+        ):
+            info = startup._read_shortcut(Path("C:\\Hermes.lnk"))
+            assert info is not None
+            assert info["target_path"] == "C:\\pythonw.exe"
+            assert info["arguments"] == '"client.exe" run'
+            assert info["working_directory"] == "C:\\Users\\Alice"
+
+    def test_install_success(self):
+        mock_create = MagicMock()
+        mock_cleanup = MagicMock()
+        with (
+            patch("sys.platform", "win32"),
             patch("hermes_client.startup._resolve_paths", return_value=("pythonw.exe", "client.exe")),
-            patch("hermes_client.startup._run", mock_run),
-            patch("builtins.print"),
+            patch("hermes_client.startup._create_shortcut", mock_create),
+            patch("hermes_client.startup._cleanup_legacy_task", mock_cleanup),
+            patch("builtins.print") as mock_print,
         ):
             startup.install()
 
-        assert mock_run.call_count == 2
-        delete_call, create_call = mock_run.call_args_list
-        assert "/Delete" in delete_call[0]
-        assert "/Create" in create_call[0]
+        mock_create.assert_called_once()
+        mock_cleanup.assert_called_once()
+        mock_print.assert_any_call("✓ Startup shortcut installed.")
 
-    def test_remove_invokes_schtasks(self):
-        mock_run = MagicMock()
-        mock_run.return_value.returncode = 0
+    def test_install_non_windows(self):
         with (
-            patch("hermes_client.startup._run", mock_run),
-            patch("builtins.print"),
+            patch("sys.platform", "linux"),
+            patch("builtins.print") as mock_print,
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            startup.install()
+
+        assert exc_info.value.code == 1
+        mock_print.assert_called_with("Startup integration is only supported on Windows.")
+
+    def test_remove_success(self):
+        mock_unlink = MagicMock()
+        mock_cleanup = MagicMock()
+        with (
+            patch("sys.platform", "win32"),
+            patch("pathlib.Path.exists", return_value=True),
+            patch("pathlib.Path.unlink", mock_unlink),
+            patch("hermes_client.startup._cleanup_legacy_task", mock_cleanup),
+            patch("builtins.print") as mock_print,
         ):
             startup.remove()
 
-        mock_run.assert_called_once()
-        args = mock_run.call_args[0]
-        assert "schtasks" in args
-        assert "/Delete" in args
+        mock_unlink.assert_called_once()
+        mock_cleanup.assert_called_once()
+        assert any("removed" in str(c) for c in mock_print.call_args_list)
 
-    def test_status_invokes_schtasks(self):
-        mock_res = MagicMock()
-        mock_res.stdout = "Status: Ready"
+    def test_remove_not_installed(self):
+        mock_cleanup = MagicMock()
         with (
-            patch("hermes_client.startup._run", return_value=mock_res),
-            patch("builtins.print"),
+            patch("sys.platform", "win32"),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("hermes_client.startup._cleanup_legacy_task", mock_cleanup),
+            patch("builtins.print") as mock_print,
+        ):
+            startup.remove()
+
+        mock_cleanup.assert_called_once()
+        mock_print.assert_called_with("Startup shortcut was not found — nothing to remove.")
+
+    def test_status_not_installed(self):
+        with (
+            patch("sys.platform", "win32"),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("builtins.print") as mock_print,
         ):
             startup.status()
+
+        mock_print.assert_called_with("Startup shortcut is NOT installed.")
+
+    def test_status_installed(self):
+        with (
+            patch("sys.platform", "win32"),
+            patch("pathlib.Path.exists", return_value=True),
+            patch(
+                "hermes_client.startup._read_shortcut",
+                return_value={
+                    "target_path": "C:\\pythonw.exe",
+                    "arguments": "client.exe run",
+                    "working_directory": "C:\\Users\\Alice",
+                },
+            ),
+            patch("builtins.print") as mock_print,
+        ):
+            startup.status()
+
+        mock_print.assert_any_call("Startup shortcut is installed.\n")

@@ -55,7 +55,7 @@ The config file is saved to `%APPDATA%\Hermes\.env.hermes-client` on Windows.
 hermes-client startup install
 ```
 
-This registers a Windows Task Scheduler task that launches Hermes at login with
+This creates a shortcut in your Windows Startup folder that launches Hermes at login with
 no console window. Re-run after upgrading the package.
 
 ```powershell
