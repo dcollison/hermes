@@ -1,59 +1,111 @@
 # Standard
+import base64
 from unittest.mock import MagicMock, patch
 
 # Remote
+import httpx
 import pytest
 
-from hermes_client.ado import resolve_callback_url, resolve_identity
+from hermes_client.ado import _auth_headers, resolve_callback_url, resolve_identity
+
+
+class TestAuthHeaders:
+    def test_basic_auth_encoding(self):
+        headers = _auth_headers("my-secret-pat")
+        expected_token = base64.b64encode(b":my-secret-pat").decode()
+        assert headers["Authorization"] == f"Basic {expected_token}"
+
+    def test_accept_header_is_json(self):
+        headers = _auth_headers("pat")
+        assert headers["Accept"] == "application/json"
+
+    def test_empty_pat(self):
+        headers = _auth_headers("")
+        expected_token = base64.b64encode(b":").decode()
+        assert headers["Authorization"] == f"Basic {expected_token}"
 
 
 class TestResolveIdentity:
-    def _mock_connection(self, user_id="abc-123", display_name="Alice Smith", error=None):
-        mock_profile = MagicMock()
-        mock_profile.id = user_id
-        mock_profile.display_name = display_name
-
-        mock_profile_client = MagicMock()
-        if error:
-            mock_profile_client.get_profile.side_effect = error
+    def _mock_response(self, status_code=200, json_body=None):
+        mock = MagicMock()
+        mock.status_code = status_code
+        mock.json.return_value = json_body or {}
+        if status_code >= 400:
+            mock.raise_for_status.side_effect = httpx.HTTPStatusError(
+                "error",
+                request=MagicMock(),
+                response=mock,
+            )
         else:
-            mock_profile_client.get_profile.return_value = mock_profile
-
-        mock_conn = MagicMock()
-        mock_conn.clients.get_profile_client.return_value = mock_profile_client
-        return mock_conn
+            mock.raise_for_status = MagicMock()
+        return mock
 
     def test_success_returns_user_id_and_display_name(self):
-        mock_conn = self._mock_connection(user_id="abc-123", display_name="Alice Smith")
-        with patch("hermes_client.ado.Connection", return_value=mock_conn):
+        resp = self._mock_response(
+            json_body={
+                "authenticatedUser": {
+                    "id": "abc-123",
+                    "providerDisplayName": "Alice Smith",
+                },
+            },
+        )
+
+        with patch("httpx.get", return_value=resp):
             result = resolve_identity("http://ado/DefaultCollection", "my-pat")
 
         assert result["user_id"] == "abc-123"
         assert result["display_name"] == "Alice Smith"
 
+    def test_falls_back_to_customDisplayName(self):
+        resp = self._mock_response(
+            json_body={
+                "authenticatedUser": {
+                    "id": "abc-123",
+                    "customDisplayName": "Alice (Custom)",
+                },
+            },
+        )
+        with patch("httpx.get", return_value=resp):
+            result = resolve_identity("http://ado/DefaultCollection", "my-pat")
+        assert result["display_name"] == "Alice (Custom)"
+
     def test_url_has_trailing_slash_stripped(self):
-        mock_conn = self._mock_connection(user_id="abc-123", display_name="Alice")
-        with patch("hermes_client.ado.Connection", return_value=mock_conn) as conn_cls:
+        resp = self._mock_response(
+            json_body={
+                "authenticatedUser": {"id": "abc-123", "providerDisplayName": "Alice"},
+            },
+        )
+        with patch("httpx.get", return_value=resp) as mock_get:
             resolve_identity("http://ado/DefaultCollection/", "my-pat")
-            base_url_called = conn_cls.call_args[1]["base_url"]
-            assert base_url_called == "http://ado/DefaultCollection"
+            url_called = mock_get.call_args[0][0]
+            assert not url_called.startswith("http://ado/DefaultCollection//")
 
     def test_missing_user_id_raises(self):
-        mock_conn = self._mock_connection(user_id="", display_name="Alice")
-        with patch("hermes_client.ado.Connection", return_value=mock_conn):
+        resp = self._mock_response(json_body={"authenticatedUser": {}})
+        with patch("httpx.get", return_value=resp):
             with pytest.raises(ValueError, match="no user ID"):
                 resolve_identity("http://ado/DefaultCollection", "my-pat")
 
-    def test_api_error_raises_exception(self):
-        mock_conn = self._mock_connection(error=Exception("Unauthorized"))
-        with patch("hermes_client.ado.Connection", return_value=mock_conn):
-            with pytest.raises(Exception, match="Unauthorized"):
+    def test_401_raises_http_status_error(self):
+        resp = self._mock_response(status_code=401)
+        with patch("httpx.get", return_value=resp):
+            with pytest.raises(httpx.HTTPStatusError):
                 resolve_identity("http://ado/DefaultCollection", "bad-pat")
+
+    def test_uses_correct_api_endpoint(self):
+        resp = self._mock_response(
+            json_body={
+                "authenticatedUser": {"id": "u1", "providerDisplayName": "Alice"},
+            },
+        )
+        with patch("httpx.get", return_value=resp) as mock_get:
+            resolve_identity("http://ado/DefaultCollection", "my-pat")
+            url_called = mock_get.call_args[0][0]
+            assert url_called == "http://ado/DefaultCollection/_apis/connectionData"
 
 
 class TestResolveCallbackUrl:
     def test_returns_http_url_with_port(self):
-
         mock_sock = MagicMock()
         mock_sock.__enter__ = MagicMock(return_value=mock_sock)
         mock_sock.__exit__ = MagicMock(return_value=False)
@@ -65,7 +117,6 @@ class TestResolveCallbackUrl:
         assert result == "http://192.168.1.42:9000/notify"
 
     def test_falls_back_to_hostname_on_socket_error(self):
-
         with (
             patch("socket.socket", side_effect=OSError("network unreachable")),
             patch("socket.gethostbyname", return_value="10.0.0.1"),
@@ -75,7 +126,6 @@ class TestResolveCallbackUrl:
         assert result == "http://10.0.0.1:9000/notify"
 
     def test_falls_back_to_loopback_when_all_else_fails(self):
-
         with (
             patch("socket.socket", side_effect=OSError),
             patch("socket.gethostbyname", side_effect=OSError),
@@ -85,7 +135,6 @@ class TestResolveCallbackUrl:
         assert result == "http://127.0.0.1:9000/notify"
 
     def test_port_embedded_in_url(self):
-
         mock_sock = MagicMock()
         mock_sock.__enter__ = MagicMock(return_value=mock_sock)
         mock_sock.__exit__ = MagicMock(return_value=False)

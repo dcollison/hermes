@@ -1,31 +1,57 @@
 # Standard
+import base64
 import logging
 import socket
 
 # Remote
-from azure.devops.connection import Connection
-from msrest.authentication import BasicAuthentication
+import httpx
 
 logger = logging.getLogger("hermes.client.ado")
 
+API_VERSION = "1.0"
+
+
+def _auth_headers(pat: str) -> dict[str, str]:
+    """Generate Basic Authentication HTTP headers for Azure DevOps REST endpoints.
+
+    :param pat: Personal Access Token.
+    :returns: Dictionary with Authorization and Accept headers.
+    """
+    token = base64.b64encode(f":{pat}".encode()).decode()
+    return {
+        "Authorization": f"Basic {token}",
+        "Accept": "application/json",
+    }
+
 
 def resolve_identity(ado_url: str, pat: str) -> dict[str, str]:
-    """Resolve the caller's ADO identity via the azure-devops SDK's profile client.
+    """Resolve the caller's ADO identity via the Azure DevOps connectionData REST API endpoint.
 
     :param ado_url: The Azure DevOps organization or collection base URL.
     :param pat: Personal Access Token with read access to the user profile.
     :returns: Dictionary with keys ``user_id`` and ``display_name``.
     :raises ValueError: If ADO returns no user ID.
+    :raises httpx.HTTPStatusError: On auth failure or HTTP error.
     """
-    connection = Connection(
-        base_url=ado_url.rstrip("/"),
-        creds=BasicAuthentication("", pat),
+    url = f"{ado_url.rstrip('/')}/_apis/connectionData"
+    resp = httpx.get(
+        url,
+        headers=_auth_headers(pat),
+        params={"api-version": API_VERSION},
+        timeout=10.0,
+        verify=False,
     )
-    profile_client = connection.clients.get_profile_client()
-    profile = profile_client.get_profile(id="me")
+    resp.raise_for_status()
+    data = resp.json()
 
-    user_id = getattr(profile, "id", "") or ""
-    display_name = getattr(profile, "display_name", "") or ""
+    user = data.get("authenticatedUser", {})
+    user_id = user.get("id", "")
+    # ADO Server returns the display name under providerDisplayName
+    display_name = (
+        user.get("providerDisplayName")
+        or user.get("customDisplayName")
+        or user.get("subjectDescriptor", "")
+    )
 
     if not user_id:
         raise ValueError(
