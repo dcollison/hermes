@@ -301,7 +301,27 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
     def _heartbeat_loop():
         time.sleep(2)
-        register_with_server(settings)
+        reg_result = register_with_server(settings)
+        if reg_result:
+            display_user = settings.ADO_DISPLAY_NAME or settings.CLIENT_NAME
+            show_notification(
+                {
+                    "heading": "Hermes Connected",
+                    "body": f"Listening for notifications as {display_user}",
+                    "status_image": "hermes",
+                    "url": settings.SERVER_URL,
+                },
+            )
+        else:
+            show_notification(
+                {
+                    "heading": "Hermes Client Started",
+                    "body": f"Retrying connection to {settings.SERVER_URL} in background",
+                    "status_image": "failure",
+                    "url": settings.SERVER_URL,
+                },
+            )
+
         while True:
             time.sleep(900)
             try:

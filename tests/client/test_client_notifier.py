@@ -286,3 +286,24 @@ class TestNotifierCleanUrl:
 
         url = "http://ado:8080/tfs/DefaultCollection/Proj/_apis/git/repositories/Repo/pullRequests/12"
         assert _clean_url(url) == "http://ado:8080/tfs/DefaultCollection/Proj/_git/Repo/pullrequest/12"
+
+
+class TestGetIconFilename:
+    def test_get_icon_filename_resolutions(self):
+        from hermes_client.notifier import _get_icon_filename
+
+        with patch("hermes_client.notifier.is_dark_mode", return_value=True):
+            assert _get_icon_filename("stopped") == "cancelled-dark.png"
+            assert _get_icon_filename("cancelled") == "cancelled-dark.png"
+            assert _get_icon_filename("success") == "succeeded-dark.png"
+            assert _get_icon_filename("failure") == "failed-dark.png"
+            assert _get_icon_filename("manual") == "hermes.png"
+            assert _get_icon_filename(None) == "hermes.png"
+            assert _get_icon_filename("") == "hermes.png"
+            assert _get_icon_filename("unknown_status") == "hermes.png"
+
+        with patch("hermes_client.notifier.is_dark_mode", return_value=False):
+            assert _get_icon_filename("stopped") == "cancelled-light.png"
+            assert _get_icon_filename("success") == "succeeded-light.png"
+            assert _get_icon_filename("manual") == "hermes.png"
+

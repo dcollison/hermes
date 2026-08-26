@@ -84,3 +84,34 @@ class TestPromptHelper:
         with patch("getpass.getpass", return_value="secret-pat"):
             val = _prompt("Enter PAT", default="", secret=True)
             assert val == "secret-pat"
+
+
+class TestStartupNotification:
+    def test_cmd_run_spawns_heartbeat_thread_and_notifies(self):
+        # Standard
+        import argparse
+
+        from hermes_client.cli import _cmd_run
+
+        settings = ClientSettings(
+            SERVER_URL="http://srv:8000",
+            CALLBACK_URL="http://host:9000/notify",
+            ADO_USER_ID="u1",
+            ADO_DISPLAY_NAME="Alice",
+            CLIENT_NAME="AlicePC",
+        )
+
+        with (
+            patch("hermes_client.cli._resolve_runtime_settings", return_value=settings),
+            patch("threading.Thread") as mock_thread_cls,
+            patch("uvicorn.run") as mock_uvicorn_run,
+        ):
+            mock_thread = MagicMock()
+            mock_thread_cls.return_value = mock_thread
+
+            _cmd_run(argparse.Namespace(log_level="info"))
+
+            mock_thread_cls.assert_called_once()
+            mock_thread.start.assert_called_once()
+            mock_uvicorn_run.assert_called_once()
+

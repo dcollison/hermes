@@ -469,10 +469,13 @@ async def _format_workitem(
 
 _BUILD_STATUS_IMAGE = {
     "succeeded": "success",
+    "partiallysucceeded": "failure",
     "failed": "failure",
     "canceled": "cancelled",
     "cancelled": "cancelled",
-    "partiallysucceeded": "failure",
+    "stopped": "cancelled",
+    "abandoned": "cancelled",
+    "completed": "success",
 }
 _DEPLOY_STATUS_IMAGE = {
     "succeeded": "success",
@@ -480,6 +483,8 @@ _DEPLOY_STATUS_IMAGE = {
     "failed": "failure",
     "canceled": "cancelled",
     "cancelled": "cancelled",
+    "stopped": "cancelled",
+    "abandoned": "cancelled",
 }
 
 
@@ -505,7 +510,11 @@ async def _format_pipeline(
         build_id = resource.get("id", "")
         build_num = resource.get("buildNumber", str(build_id))
         definition = resource.get("definition", {}).get("name", "Pipeline")
-        result = resource.get("status", "unknown").lower()
+        result = (
+            resource.get("result")
+            or resource.get("status")
+            or "unknown"
+        ).lower()
 
         requests = resource.get("requests", [])
         requested_for = requests[0].get("requestedFor", {}) if requests else {}
@@ -518,7 +527,10 @@ async def _format_pipeline(
             or resource.get("url", "")
         )
         heading = f"Build {result.replace('partiallysucceeded', 'partially succeeded').title()}"
-        status_image = _BUILD_STATUS_IMAGE.get(result)
+        status_image = _BUILD_STATUS_IMAGE.get(
+            result,
+            "cancelled" if ("stop" in result or "cancel" in result) else "fallback",
+        )
         default_body = f"{definition} #{build_num} {result}"
         # Always notify the person who triggered the build — it's their result
         mentioned = _mentions(requested_for, actor_id=None, message=text)

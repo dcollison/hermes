@@ -472,6 +472,8 @@ class TestFormatPipeline:
             ("succeeded", "success"),
             ("failed", "failure"),
             ("cancelled", "cancelled"),
+            ("canceled", "cancelled"),
+            ("stopped", "cancelled"),
             ("partiallysucceeded", "failure"),
         ],
     )

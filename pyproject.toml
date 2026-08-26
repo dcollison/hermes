@@ -54,3 +54,7 @@ src_paths = ["hermes_client", "hermes_server", "notify", "tests"]
 import_heading_stdlib = "Standard"
 import_heading_thirdparty = "Remote"
 import_heading_localfolder = "Local"
+
+[tool.ruff]
+target-version = "py311"
+

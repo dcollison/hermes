@@ -24,9 +24,17 @@ logger = logging.getLogger("hermes.client.notifier")
 # Maps status_image keys to base bundled PNG filenames
 _STATUS_ICONS = {
     "success": "succeeded",
+    "succeeded": "succeeded",
+    "completed": "succeeded",
     "failure": "failed",
+    "failed": "failed",
+    "rejected": "failed",
     "cancelled": "cancelled",
+    "canceled": "cancelled",
+    "stopped": "cancelled",
+    "abandoned": "cancelled",
     "new pr": "pr",
+    "pr": "pr",
     "pr completed": "merged",
     "pr merged": "merged",
     "pr comment": "comment",
@@ -38,6 +46,7 @@ _STATUS_ICONS = {
     "user story": "userstory",
     "workitem comment": "comment",
     "manual": "hermes",
+    "hermes": "hermes",
     "fallback": "hermes",
 }
 
@@ -86,16 +95,14 @@ def is_dark_mode() -> bool:
         return True
 
 
-def _get_icon_filename(status_image_key: str | None) -> str | None:
+def _get_icon_filename(status_image_key: str | None) -> str:
     """Resolve a status key to a theme-aware icon filename.
 
     :param status_image_key: Key identifying the notification status icon.
-    :returns: Theme-aware PNG filename or None.
+    :returns: Theme-aware PNG filename (defaults to hermes.png).
     """
-    if not status_image_key:
-        return None
-
-    base_name = _STATUS_ICONS.get(status_image_key.lower(), "task")
+    key = (status_image_key or "fallback").lower()
+    base_name = _STATUS_ICONS.get(key, "hermes")
 
     if base_name == "hermes":
         return "hermes.png"
@@ -144,7 +151,8 @@ def show_notification(payload: dict[str, object]) -> None:
     body: str = str(payload.get("body", ""))
     url: str = _clean_url(str(payload.get("url") or ""))
     avatar_b64: str | None = payload.get("avatar_b64")  # type: ignore[assignment]
-    status_image_key: str | None = payload.get("status_image", "fallback")  # type: ignore[assignment]
+    raw_status_key = payload.get("status_image")
+    status_image_key: str = str(raw_status_key) if raw_status_key else "fallback"
 
     avatar_path: str | None = _save_b64_image(avatar_b64) if avatar_b64 else None
 
