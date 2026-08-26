@@ -19,6 +19,9 @@ import os
 import sys
 from pathlib import Path
 
+__version__ = "2.0.11"
+
+
 try:
     # Remote
     import httpx
