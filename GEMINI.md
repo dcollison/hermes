@@ -89,3 +89,13 @@ isort --check .
 
 - All unit tests reside under `tests/server/` and `tests/client/`.
 - Maintain 100% test pass rate when modifying formatting, routing, storage, or dispatching logic.
+
+---
+
+## 5. Git & Commit Guidelines
+
+- **Commit Message Preparation**:
+  - When completing work or presenting changes, draft a concise and informative git commit message (using imperative mood, e.g. `Fix ...`, `Add ...`, `Update ...`).
+  - Provide the suggested commit message and summary of staged files so the user can easily review or run `git commit`.
+- **Commit Policy**:
+  - Do **not** commit or push changes automatically unless explicitly requested by the user.
