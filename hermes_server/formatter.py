@@ -4,12 +4,17 @@ import logging
 import re
 
 # Local
-from .ado_client import get_thread_participants, get_user_avatar_b64
+from .ado_client import (
+    get_thread_participants,
+    get_user_avatar_b64,
+    resolve_identity,
+)
 
 logger = logging.getLogger(__name__)
 
 _HTML_HREF_RE = re.compile(r'href="([^"]+)"')
 _MD_LINK_RE = re.compile(r"\((https?://[^\s)]+)\)")
+_IDENTITY_STR_RE = re.compile(r"^(.*?)\s*<([^>]+)>\s*$")
 
 
 def _extract_message(payload: dict) -> tuple[str, str]:
@@ -38,18 +43,94 @@ def _extract_message(payload: dict) -> tuple[str, str]:
     return text, link
 
 
+def parse_identity(ident: dict | str | None) -> dict[str, str | None]:
+    """Parse an Azure DevOps identity dictionary or composite string.
+
+    Handles strings formatted as ``DisplayName <DOMAIN\\AccountName>``,
+    ``DisplayName <email@domain.com>``, or plain ``DisplayName``.
+
+    :param ident: ADO identity dictionary, string, or None.
+    :returns: Dictionary with keys ``id``, ``displayName``, ``uniqueName``, ``accountName``.
+    """
+    if not ident:
+        return {"id": None, "displayName": "", "uniqueName": "", "accountName": ""}
+
+    if isinstance(ident, dict):
+        uid = (
+            ident.get("id")
+            or ident.get("uniqueName")
+            or ident.get("identity", {}).get("id")
+            or ident.get("identity", {}).get("uniqueName")
+        )
+        raw_disp = (
+            ident.get("displayName")
+            or ident.get("providerDisplayName")
+            or ident.get("customDisplayName")
+            or ident.get("name")
+            or ident.get("identity", {}).get("displayName")
+            or ""
+        )
+        unique_name = (
+            ident.get("uniqueName")
+            or ident.get("accountName")
+            or ident.get("identity", {}).get("uniqueName")
+            or ""
+        )
+
+        disp_name = raw_disp
+        if "<" in raw_disp and ">" in raw_disp:
+            m = _IDENTITY_STR_RE.match(raw_disp)
+            if m:
+                disp_name = m.group(1).strip()
+                if not unique_name:
+                    unique_name = m.group(2).strip()
+
+        account_name = ""
+        if unique_name:
+            account_name = unique_name.split("\\")[-1].split("@")[0].strip()
+
+        return {
+            "id": str(uid) if uid else None,
+            "displayName": disp_name.strip(),
+            "uniqueName": unique_name.strip(),
+            "accountName": account_name,
+        }
+
+    s = str(ident).strip()
+    m = _IDENTITY_STR_RE.match(s)
+    if m:
+        disp_name = m.group(1).strip()
+        unique_name = m.group(2).strip()
+    else:
+        disp_name = s
+        unique_name = ""
+
+    account_name = ""
+    if unique_name:
+        account_name = unique_name.split("\\")[-1].split("@")[0].strip()
+
+    return {
+        "id": None,
+        "displayName": disp_name,
+        "uniqueName": unique_name,
+        "accountName": account_name,
+    }
+
+
 def _mentions(
     *identities: dict | str | None,
     actor_id: str | None = None,
+    actor_name: str | None = None,
     message: str | None = None,
 ) -> dict[str, list[str]]:
-    """Build a mentions dict from ADO identity dicts or plain strings.
+    """Build a mentions dict from ADO identity dicts, parsed identities, or plain strings.
 
     The actor is excluded so they don't get notified of their own actions.
     Users whose names appear in the notification message are also excluded.
 
-    :param identities: ADO identity dictionaries or user display name strings.
+    :param identities: ADO identity dictionaries, strings, or None.
     :param actor_id: Optional ID of the user initiating the action to exclude.
+    :param actor_name: Optional display name or account name of the actor to exclude.
     :param message: Optional notification message text to filter named users.
     :returns: Dictionary with lists of ``user_ids`` and ``names``.
     """
@@ -58,39 +139,46 @@ def _mentions(
     seen_ids: set[str] = set()
     seen_names: set[str] = set()
 
+    actor_name_lower = actor_name.lower().strip() if actor_name else None
+
     for ident in identities:
         if not ident:
             continue
 
-        if isinstance(ident, str):
-            name = ident.strip()
-            if not name or name == actor_id:
-                continue
-            if message and name in message:
-                continue
-            if name not in seen_names:
-                seen_names.add(name)
-                names.append(name)
+        parsed = parse_identity(ident)
+        uid = parsed["id"]
+        disp_name = parsed["displayName"]
+        unique_name = parsed["uniqueName"]
+        account_name = parsed["accountName"]
+
+        # Skip if matches actor ID
+        if uid and actor_id and uid == actor_id:
             continue
 
-        uid = ident.get("id") or ident.get("uniqueName", "")
-        name = ident.get("displayName", "")
+        # Skip if matches actor name
+        if actor_name_lower:
+            if disp_name and disp_name.lower() == actor_name_lower:
+                continue
+            if unique_name and unique_name.lower() == actor_name_lower:
+                continue
+            if account_name and account_name.lower() == actor_name_lower:
+                continue
 
-        if uid and uid == actor_id:
-            continue
-
-        if message and name and name in message:
+        # Skip if user's display name appears in the message (e.g. "Bug created by Alice")
+        if message and disp_name and disp_name in message:
             continue
 
         if uid and uid not in seen_ids:
             seen_ids.add(uid)
             user_ids.append(uid)
 
-        if name and name not in seen_names:
-            seen_names.add(name)
-            names.append(name)
+        for name_val in (disp_name, unique_name, account_name):
+            if name_val and name_val not in seen_names:
+                seen_names.add(name_val)
+                names.append(name_val)
 
     return {"user_ids": user_ids, "names": names}
+
 
 
 async def format_webhook(event_type: str, payload: dict) -> dict[str, object] | None:
@@ -282,27 +370,39 @@ async def _format_workitem(
     wi_id = wi_resource.get("id", resource.get("id", ""))
     wi_type = fields.get("System.WorkItemType", "Work Item")
 
-    assigned_to_raw = fields.get("System.AssignedTo", {})
-    assigned_to_name = (
-        assigned_to_raw.get("displayName")
-        if isinstance(assigned_to_raw, dict)
-        else str(assigned_to_raw or "")
-    )
+    assigned_to_raw = fields.get("System.AssignedTo")
+    assigned_to_info = parse_identity(assigned_to_raw)
+    assigned_to_name = assigned_to_info["displayName"] or ""
 
     if event_type == "workitem.updated":
-        changed_by_raw = resource.get("revisedBy", {})
+        changed_by_raw = resource.get("revisedBy") or fields.get("System.ChangedBy")
     else:
         changed_by_raw = fields.get(
             "System.ChangedBy",
-            fields.get("System.CreatedBy", {}),
+            fields.get("System.CreatedBy"),
         )
 
-    actor_name = (
-        changed_by_raw.get("displayName")
-        if isinstance(changed_by_raw, dict)
-        else str(changed_by_raw or "Someone")
-    )
-    actor_id = changed_by_raw.get("id") if isinstance(changed_by_raw, dict) else None
+    actor_info = parse_identity(changed_by_raw)
+    actor_name = actor_info["displayName"] or "Someone"
+    actor_id = actor_info.get("id")
+
+    # If actor_id is missing, try resolving identity from ADO
+    if not actor_id:
+        query = actor_info.get("uniqueName") or actor_info.get("displayName")
+        if query:
+            resolved = await resolve_identity(query)
+            if resolved:
+                actor_id = resolved.get("id")
+                if resolved.get("displayName") and not actor_info["displayName"]:
+                    actor_name = resolved["displayName"]
+
+    # Also resolve assigned_to identity ID if missing
+    if assigned_to_name and not assigned_to_info.get("id"):
+        query = assigned_to_info.get("uniqueName") or assigned_to_info.get("displayName")
+        if query:
+            resolved = await resolve_identity(query)
+            if resolved and resolved.get("id"):
+                assigned_to_info["id"] = resolved.get("id")
 
     url = wi_resource.get("url", "")
     if "/_apis/" in url:
@@ -336,7 +436,12 @@ async def _format_workitem(
     resolved_url = link or url
 
     avatar = await get_user_avatar_b64(actor_id)
-    mentioned = _mentions(assigned_to_raw, actor_id=actor_id, message=text)
+    mentioned = _mentions(
+        assigned_to_info if assigned_to_name else None,
+        actor_id=actor_id,
+        actor_name=actor_name,
+        message=text,
+    )
 
     return {
         "event_type": "workitem",

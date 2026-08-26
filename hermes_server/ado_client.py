@@ -14,6 +14,7 @@ API_VERSION = "1.0"
 
 _avatar_cache: dict[str, str | None] = {}
 _group_cache: dict[str, dict[str, list[str]]] = {}
+_identity_cache: dict[str, dict[str, str] | None] = {}
 
 
 def _auth_headers() -> dict[str, str]:
@@ -158,3 +159,60 @@ async def get_thread_participants(
     except Exception as e:
         logger.warning(f"Failed to fetch PR thread participants: {e}")
     return []
+
+
+async def resolve_identity(query: str | None) -> dict[str, str] | None:
+    """Resolve an ADO user identity by account name, unique name, or display name.
+
+    Queries:
+        GET /_apis/identities?searchFilter=General&filterValue={query}
+
+    :param query: Account name (e.g. DOMAIN\\user), email, or display name.
+    :returns: Dictionary with keys ``id``, ``displayName``, ``uniqueName``, or None.
+    """
+    if not settings.ADO_PAT or not settings.ADO_ORGANIZATION_URL or not query:
+        return None
+    cleaned = query.strip()
+    if not cleaned:
+        return None
+    if cleaned in _identity_cache:
+        return _identity_cache[cleaned]
+
+    try:
+        url = f"{settings.ADO_ORGANIZATION_URL.rstrip('/')}/_apis/identities"
+        params = {
+            "api-version": API_VERSION,
+            "searchFilter": "General",
+            "filterValue": cleaned,
+        }
+        async with httpx.AsyncClient(timeout=5.0, verify=False) as client:
+            resp = await client.get(url, headers=_auth_headers(), params=params)
+            if resp.status_code == 200:
+                data = resp.json()
+                items = (
+                    data.get("value", []) if isinstance(data, dict) else []
+                )
+                for item in items:
+                    if item and item.get("id"):
+                        result = {
+                            "id": str(item.get("id", "")),
+                            "displayName": str(
+                                item.get("providerDisplayName")
+                                or item.get("customDisplayName")
+                                or item.get("displayName")
+                                or "",
+                            ),
+                            "uniqueName": str(
+                                item.get("uniqueName")
+                                or item.get("accountName")
+                                or "",
+                            ),
+                        }
+                        _identity_cache[cleaned] = result
+                        return result
+    except Exception as e:
+        logger.debug(f"Identity resolution failed for '{cleaned}': {e}")
+
+    _identity_cache[cleaned] = None
+    return None
+

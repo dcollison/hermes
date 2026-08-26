@@ -340,6 +340,98 @@ class TestFormatWorkItem:
         assert "/_apis/" not in notif["url"]
         assert "/_workitems/edit/" in notif["url"]
 
+    async def test_workitem_string_identities_parsed_and_filtered(self):
+        from hermes_server.formatter import format_webhook
+
+        payload = {
+            "resource": {
+                "id": 101,
+                "fields": {
+                    "System.WorkItemType": "Bug",
+                    "System.Title": "Crash on login",
+                    "System.State": "Active",
+                    "System.AssignedTo": "Carol Smith <DOMAIN\\Carol.Smith>",
+                    "System.ChangedBy": "Dale Collison <DOMAIN\\Dale.Collison>",
+                },
+                "url": "http://ado/_apis/wit/workItems/101",
+            },
+            "resourceContainers": {"project": {"name": "ProjectX"}},
+        }
+        notif = await format_webhook("workitem.updated", payload)
+        assert notif["actor"] == "Dale Collison"
+        assert notif["meta"]["assigned_to"] == "Carol Smith"
+        assert "Carol Smith" in notif["mentions"]["names"]
+        assert "DOMAIN\\Carol.Smith" in notif["mentions"]["names"]
+        assert "Carol.Smith" in notif["mentions"]["names"]
+        assert "Dale Collison" not in notif["mentions"]["names"]
+
+    async def test_workitem_self_edit_string_identity_excludes_self(self):
+        from hermes_server.formatter import format_webhook
+
+        payload = {
+            "resource": {
+                "id": 102,
+                "fields": {
+                    "System.WorkItemType": "Task",
+                    "System.Title": "Refactor router",
+                    "System.State": "Active",
+                    "System.AssignedTo": "Dale Collison <DOMAIN\\Dale.Collison>",
+                    "System.ChangedBy": "Dale Collison <DOMAIN\\Dale.Collison>",
+                },
+                "url": "http://ado/_apis/wit/workItems/102",
+            },
+            "resourceContainers": {"project": {"name": "ProjectX"}},
+        }
+        notif = await format_webhook("workitem.updated", payload)
+        assert notif["actor"] == "Dale Collison"
+        assert notif["meta"]["assigned_to"] == "Dale Collison"
+        assert notif["mentions"]["names"] == []
+        assert notif["mentions"]["user_ids"] == []
+
+
+class TestParseIdentity:
+    def test_composite_domain_account_string(self):
+        from hermes_server.formatter import parse_identity
+
+        res = parse_identity("Dale Collison <DOMAIN\\Dale.Collison>")
+        assert res["displayName"] == "Dale Collison"
+        assert res["uniqueName"] == "DOMAIN\\Dale.Collison"
+        assert res["accountName"] == "Dale.Collison"
+        assert res["id"] is None
+
+    def test_composite_email_string(self):
+        from hermes_server.formatter import parse_identity
+
+        res = parse_identity("Carol Smith <carol@example.com>")
+        assert res["displayName"] == "Carol Smith"
+        assert res["uniqueName"] == "carol@example.com"
+        assert res["accountName"] == "carol"
+
+    def test_plain_display_name_string(self):
+        from hermes_server.formatter import parse_identity
+
+        res = parse_identity("Backend Engineers")
+        assert res["displayName"] == "Backend Engineers"
+        assert res["uniqueName"] == ""
+        assert res["accountName"] == ""
+
+    def test_identity_dict(self):
+        from hermes_server.formatter import parse_identity
+
+        res = parse_identity({"id": "u-123", "displayName": "Alice", "uniqueName": "DOMAIN\\Alice"})
+        assert res["id"] == "u-123"
+        assert res["displayName"] == "Alice"
+        assert res["uniqueName"] == "DOMAIN\\Alice"
+        assert res["accountName"] == "Alice"
+
+    def test_none_or_empty(self):
+        from hermes_server.formatter import parse_identity
+
+        assert parse_identity(None) == {"id": None, "displayName": "", "uniqueName": "", "accountName": ""}
+        assert parse_identity("") == {"id": None, "displayName": "", "uniqueName": "", "accountName": ""}
+        assert parse_identity({}) == {"id": None, "displayName": "", "uniqueName": "", "accountName": ""}
+
+
 
 # ---------------------------------------------------------------------------
 # Pipeline / build events

@@ -34,24 +34,62 @@ async def _client_is_relevant(client: dict, notification: dict) -> bool:
 
     # --- identity check ---
     client_uid = client.get("ado_user_id")
+    client_display_name = (client.get("display_name") or "").lower().strip()
+    client_name = (client.get("name") or "").lower().strip()
+
     actor_id = notification.get("actor_id")
+    actor_name = (notification.get("actor") or "").lower().strip()
+
     mentions: dict = notification.get("mentions", {})
     mentioned_user_ids: list[str] = mentions.get("user_ids", [])
-    mentioned_names: list[str] = [n.lower() for n in mentions.get("names", [])]
+    mentioned_names: list[str] = [
+        n.lower().strip() for n in mentions.get("names", []) if n.strip()
+    ]
 
     # Don't notify someone about their own action...
+    is_actor = False
     if actor_id and client_uid and actor_id == client_uid:
+        is_actor = True
+    elif actor_name and client_display_name and actor_name == client_display_name:
+        is_actor = True
+
+    if is_actor:
         # ...UNLESS the formatter explicitly mentioned them anyway.
         # This allows users to see their own build results or PR merge confirmations.
-        if client_uid not in mentioned_user_ids:
+        explicitly_mentioned = False
+        if client_uid and client_uid in mentioned_user_ids:
+            explicitly_mentioned = True
+        elif client_display_name and client_display_name in mentioned_names:
+            explicitly_mentioned = True
+        elif client_name and client_name in mentioned_names:
+            explicitly_mentioned = True
+
+        if not explicitly_mentioned:
+            return False
+
+    # Check if this is a targeted event where the target was self-suppressed
+    # (e.g. a work item assigned to someone, but edited by that same person).
+    if event_type == "workitem":
+        assigned_to = (
+            notification.get("meta", {}).get("assigned_to") or ""
+        ).strip()
+        # If the work item was assigned to someone, but there are no remaining mentions,
+        # it was targeted at the assignee who performed the action — do not broadcast.
+        if assigned_to and not mentioned_user_ids and not mentioned_names:
             return False
 
     # If there are no mentions it's a broadcast — send to all subscribers
     if not mentioned_user_ids and not mentioned_names:
         return True
 
-    # Direct user match
+    # Direct user ID match
     if client_uid and client_uid in mentioned_user_ids:
+        return True
+
+    # Direct display name / client name match
+    if client_display_name and client_display_name in mentioned_names:
+        return True
+    if client_name and client_name in mentioned_names:
         return True
 
     # Group membership match — fetch lazily and cache
@@ -67,7 +105,7 @@ async def _client_is_relevant(client: dict, notification: dict) -> bool:
         # Check group names
         client_group_names = client_groups.get("names", [])
         for group_name in client_group_names:
-            if group_name.lower() in mentioned_names:
+            if group_name.lower().strip() in mentioned_names:
                 return True
 
     return False

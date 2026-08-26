@@ -28,14 +28,17 @@ def _make_client(
 
 def _make_notification(
     event_type="pr",
+    actor=None,
     actor_id=None,
     mentioned_user_ids=None,
     mentioned_names=None,
+    meta=None,
 ):
     return {
         "event_type": event_type,
         "heading": "Test",
         "body": "Test body",
+        "actor": actor or "Someone",
         "actor_id": actor_id,
         "mentions": {
             "user_ids": mentioned_user_ids or [],
@@ -45,7 +48,7 @@ def _make_notification(
         "url": "",
         "project": "Proj",
         "avatar_b64": None,
-        "meta": {},
+        "meta": meta or {},
     }
 
 
@@ -247,6 +250,88 @@ class TestClientIsRelevant:
                 _make_notification(mentioned_user_ids=["user-99"], mentioned_names=[]),
             )
         mock_groups.assert_called_once()
+
+    # --- display name & workitem relevance ---
+
+    async def test_direct_display_name_match(self):
+        assert (
+            await self._check(
+                _make_client(display_name="Carol Smith"),
+                _make_notification(mentioned_names=["Carol Smith"]),
+            )
+            is True
+        )
+
+    async def test_actor_name_suppression_without_actor_id(self):
+        assert (
+            await self._check(
+                _make_client(display_name="Dale Collison"),
+                _make_notification(
+                    actor="Dale Collison",
+                    actor_id=None,
+                    mentioned_names=["Bob"],
+                ),
+            )
+            is False
+        )
+
+    async def test_workitem_self_edit_not_broadcast_to_other_clients(self):
+        notif = _make_notification(
+            event_type="workitem",
+            actor="Dale Collison",
+            meta={"assigned_to": "Dale Collison"},
+            mentioned_user_ids=[],
+            mentioned_names=[],
+        )
+        assert (
+            await self._check(
+                _make_client(display_name="Bob Jones"),
+                notif,
+            )
+            is False
+        )
+
+    async def test_workitem_self_edit_not_delivered_to_actor(self):
+        notif = _make_notification(
+            event_type="workitem",
+            actor="Dale Collison",
+            meta={"assigned_to": "Dale Collison"},
+            mentioned_user_ids=[],
+            mentioned_names=[],
+        )
+        assert (
+            await self._check(
+                _make_client(display_name="Dale Collison"),
+                notif,
+            )
+            is False
+        )
+
+    async def test_workitem_unassigned_broadcasts_to_subscribers_excluding_actor(self):
+        notif = _make_notification(
+            event_type="workitem",
+            actor="Dale Collison",
+            meta={"assigned_to": ""},
+            mentioned_user_ids=[],
+            mentioned_names=[],
+        )
+        # Actor is suppressed
+        assert (
+            await self._check(
+                _make_client(display_name="Dale Collison"),
+                notif,
+            )
+            is False
+        )
+        # Other subscriber receives it as a broadcast
+        assert (
+            await self._check(
+                _make_client(display_name="Bob Jones"),
+                notif,
+            )
+            is True
+        )
+
 
 
 # ---------------------------------------------------------------------------
