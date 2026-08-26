@@ -1,4 +1,5 @@
 # Standard
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -28,9 +29,43 @@ class TestStartupShortcut:
         with (
             patch("pathlib.Path.exists", return_value=False),
             patch("sys.executable", "C:\\Python\\python.exe"),
+            patch("shutil.which", return_value=None),
         ):
             pythonw, script = startup._resolve_paths()
             assert "python.exe" in pythonw
+            if sys.platform == "win32":
+                assert script.endswith(".exe")
+
+    def test_resolve_paths_windows_appends_exe(self):
+        with (
+            patch("sys.platform", "win32"),
+            patch("sys.argv", ["C:\\Python\\Scripts\\hermes-client"]),
+            patch("sys.executable", "C:\\Python\\python.exe"),
+            patch.object(Path, "exists", autospec=True, side_effect=lambda p: str(p).endswith(".exe")),
+        ):
+            pythonw, script = startup._resolve_paths()
+            assert script == "C:\\Python\\Scripts\\hermes-client.exe"
+
+    def test_resolve_paths_windows_finds_which_exe(self):
+        with (
+            patch("sys.platform", "win32"),
+            patch("sys.argv", ["C:\\Hermes\\hermes_client\\cli.py"]),
+            patch("sys.executable", "C:\\Python\\python.exe"),
+            patch("pathlib.Path.exists", return_value=False),
+            patch("shutil.which", return_value="C:\\Python\\Scripts\\hermes-client.exe"),
+        ):
+            pythonw, script = startup._resolve_paths()
+            assert script == "C:\\Python\\Scripts\\hermes-client.exe"
+
+    def test_resolve_paths_windows_already_exe(self):
+        with (
+            patch("sys.platform", "win32"),
+            patch("sys.argv", ["C:\\Python\\Scripts\\hermes-client.exe"]),
+            patch("sys.executable", "C:\\Python\\python.exe"),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            pythonw, script = startup._resolve_paths()
+            assert script == "C:\\Python\\Scripts\\hermes-client.exe"
 
     def test_create_shortcut_invokes_powershell(self):
         mock_run = MagicMock()

@@ -1,5 +1,6 @@
 # Standard
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -49,6 +50,24 @@ def _resolve_paths() -> tuple[str, str]:
     """
     # The running script (hermes-client.exe or hermes-client on Unix)
     script = Path(sys.argv[0]).resolve()
+
+    if sys.platform == "win32":
+        if script.suffix.lower() != ".exe":
+            if script.with_suffix(".exe").exists():
+                script = script.with_suffix(".exe")
+            else:
+                exe_in_parent = Path(sys.executable).parent / "hermes-client.exe"
+                exe_in_scripts = Path(sys.executable).parent / "Scripts" / "hermes-client.exe"
+                which_exe = shutil.which("hermes-client.exe") or shutil.which("hermes-client")
+
+                if exe_in_parent.exists():
+                    script = exe_in_parent
+                elif exe_in_scripts.exists():
+                    script = exe_in_scripts
+                elif which_exe and which_exe.lower().endswith(".exe"):
+                    script = Path(which_exe).resolve()
+                else:
+                    script = script.with_suffix(".exe")
 
     # Look for pythonw.exe next to the current interpreter
     pythonw = Path(sys.executable).parent / "pythonw.exe"
