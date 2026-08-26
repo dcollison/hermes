@@ -634,3 +634,34 @@ class TestCleanUrl:
         text, link = _extract_message(payload)
         assert text == "PR created"
         assert link == "http://ado/pr/1?foo=bar&baz=qux"
+
+    def test_canonicalizes_vsix_build_hub_url(self):
+        from hermes_server.formatter import _clean_url
+
+        url = "http://ado:8080/tfs/DefaultCollection/_apps/hub/ms.vss-build-web.run-result-hub?buildId=5678&planId=123"
+        assert _clean_url(url) == "http://ado:8080/tfs/DefaultCollection/_build/results?buildId=5678"
+
+    def test_canonicalizes_vsix_release_hub_url(self):
+        from hermes_server.formatter import _clean_url
+
+        url = "http://ado:8080/tfs/DefaultCollection/ProjectName/_apps/hub/ms.vss-release-web.hub-explorer?releaseId=987"
+        assert _clean_url(url) == "http://ado:8080/tfs/DefaultCollection/ProjectName/_release?releaseId=987"
+
+    def test_canonicalizes_build_api_url(self):
+        from hermes_server.formatter import _clean_url
+
+        url = "http://ado:8080/tfs/DefaultCollection/ProjectName/_apis/build/Builds/1234"
+        assert _clean_url(url) == "http://ado:8080/tfs/DefaultCollection/ProjectName/_build/results?buildId=1234"
+
+    def test_canonicalizes_git_pr_api_url(self):
+        from hermes_server.formatter import _clean_url
+
+        url = "http://ado:8080/tfs/DefaultCollection/ProjectName/_apis/git/repositories/MyRepo/pullRequests/42"
+        assert _clean_url(url) == "http://ado:8080/tfs/DefaultCollection/ProjectName/_git/MyRepo/pullrequest/42"
+
+    def test_canonicalizes_wit_api_url(self):
+        from hermes_server.formatter import _clean_url
+
+        url = "http://ado:8080/tfs/DefaultCollection/_apis/wit/workItems/99/revisions/2"
+        assert _clean_url(url) == "http://ado:8080/tfs/DefaultCollection/_workitems/edit/99"
+

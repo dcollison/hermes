@@ -3,6 +3,7 @@ import base64
 import html
 import logging
 import os
+import re
 import tempfile
 from importlib import resources
 
@@ -39,6 +40,31 @@ _STATUS_ICONS = {
     "manual": "hermes",
     "fallback": "hermes",
 }
+
+_BUILD_HUB_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apps/hub/ms\.vss-build-web\.[^?]+\?.*?\bbuildId=(\d+)",
+    re.IGNORECASE,
+)
+_RELEASE_HUB_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apps/hub/ms\.vss-release-web\.[^?]+\?.*?\breleaseId=(\d+)",
+    re.IGNORECASE,
+)
+_BUILD_API_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apis/build/builds/(\d+)",
+    re.IGNORECASE,
+)
+_GIT_PR_API_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apis/git/repositories/([^/]+)/pullRequests/(\d+)",
+    re.IGNORECASE,
+)
+_WIT_API_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apis/wit/workItems/(\d+)",
+    re.IGNORECASE,
+)
+_RELEASE_API_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apis/Release/releases/(\d+)",
+    re.IGNORECASE,
+)
 
 
 def is_dark_mode() -> bool:
@@ -79,7 +105,7 @@ def _get_icon_filename(status_image_key: str | None) -> str | None:
 
 
 def _clean_url(url: str) -> str:
-    """Sanitize a notification click URL by unescaping HTML entities.
+    """Sanitize a notification click URL by unescaping HTML entities and canonicalizing ADO URLs.
 
     :param url: Raw URL string.
     :returns: Cleaned URL string.
@@ -89,6 +115,23 @@ def _clean_url(url: str) -> str:
     url = html.unescape(url.strip())
     while "&amp;" in url:
         url = url.replace("&amp;", "&")
+
+    if m := _BUILD_HUB_RE.search(url):
+        return f"{m.group(1)}/_build/results?buildId={m.group(2)}"
+    if m := _RELEASE_HUB_RE.search(url):
+        return f"{m.group(1)}/_release?releaseId={m.group(2)}"
+    if m := _BUILD_API_RE.search(url):
+        return f"{m.group(1)}/_build/results?buildId={m.group(2)}"
+    if m := _GIT_PR_API_RE.search(url):
+        return f"{m.group(1)}/_git/{m.group(2)}/pullrequest/{m.group(3)}"
+
+    wit_url = url.split("/revisions/")[0].split("/updates/")[0]
+    if m := _WIT_API_RE.search(wit_url):
+        return f"{m.group(1)}/_workitems/edit/{m.group(2)}"
+
+    if m := _RELEASE_API_RE.search(url):
+        return f"{m.group(1)}/_release?releaseId={m.group(2)}"
+
     return url
 
 
@@ -136,7 +179,6 @@ def _display(
     :param status_image_path: Path to the bundled status icon image file, or None.
     """
     url = _clean_url(url)
-    # Log the attempt so Dale can verify the payload is correct
     logger.info(f"[TOAST] {heading}: {body}")
 
     try:
@@ -147,17 +189,10 @@ def _display(
         elif status_image_path:
             kwargs["icon"] = status_image_path
 
-        def _on_click(args):
-            if url:
-                # Standard
-                import webbrowser
-
-                webbrowser.open(url)
-
         toast(
             heading,
             body,
-            on_click=_on_click if url else print,
+            on_click=url if url else print,
             app_id=__app_id__,
             **kwargs,
         )

@@ -589,8 +589,34 @@ async def _format_pipeline(
     }
 
 
+_BUILD_HUB_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apps/hub/ms\.vss-build-web\.[^?]+\?.*?\bbuildId=(\d+)",
+    re.IGNORECASE,
+)
+_RELEASE_HUB_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apps/hub/ms\.vss-release-web\.[^?]+\?.*?\breleaseId=(\d+)",
+    re.IGNORECASE,
+)
+_BUILD_API_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apis/build/builds/(\d+)",
+    re.IGNORECASE,
+)
+_GIT_PR_API_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apis/git/repositories/([^/]+)/pullRequests/(\d+)",
+    re.IGNORECASE,
+)
+_WIT_API_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apis/wit/workItems/(\d+)",
+    re.IGNORECASE,
+)
+_RELEASE_API_RE = re.compile(
+    r"(https?://[^/]+(?:/[^/]+)*?)/_apis/Release/releases/(\d+)",
+    re.IGNORECASE,
+)
+
+
 def _clean_url(url: str) -> str:
-    """Clean raw API URLs and HTML-escaped characters to ensure browser-friendly URLs.
+    """Clean raw API URLs, VSIX extension URLs, and HTML-escaped characters to ensure browser-friendly URLs.
 
     :param url: Raw URL string.
     :returns: Sanitized URL string or empty string.
@@ -600,6 +626,23 @@ def _clean_url(url: str) -> str:
     url = html.unescape(url.strip())
     while "&amp;" in url:
         url = url.replace("&amp;", "&")
+
+    if m := _BUILD_HUB_RE.search(url):
+        return f"{m.group(1)}/_build/results?buildId={m.group(2)}"
+    if m := _RELEASE_HUB_RE.search(url):
+        return f"{m.group(1)}/_release?releaseId={m.group(2)}"
+    if m := _BUILD_API_RE.search(url):
+        return f"{m.group(1)}/_build/results?buildId={m.group(2)}"
+    if m := _GIT_PR_API_RE.search(url):
+        return f"{m.group(1)}/_git/{m.group(2)}/pullrequest/{m.group(3)}"
+
+    wit_url = url.split("/revisions/")[0].split("/updates/")[0]
+    if m := _WIT_API_RE.search(wit_url):
+        return f"{m.group(1)}/_workitems/edit/{m.group(2)}"
+
+    if m := _RELEASE_API_RE.search(url):
+        return f"{m.group(1)}/_release?releaseId={m.group(2)}"
+
     if "/_apis/" in url and "/_workitems" not in url:
         return ""
     return url

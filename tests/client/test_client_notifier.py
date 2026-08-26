@@ -274,3 +274,15 @@ class TestNotifierCleanUrl:
         assert _clean_url("http://ado/pr/1?a=1&amp;b=2") == "http://ado/pr/1?a=1&b=2"
         assert _clean_url("http://ado/pr/1?a=1&amp;amp;b=2") == "http://ado/pr/1?a=1&b=2"
         assert _clean_url("") == ""
+
+    def test_clean_url_canonicalizes_vsix_build_url(self):
+        from hermes_client.notifier import _clean_url
+
+        url = "http://ado:8080/tfs/DefaultCollection/_apps/hub/ms.vss-build-web.run-result-hub?buildId=5678&planId=123"
+        assert _clean_url(url) == "http://ado:8080/tfs/DefaultCollection/_build/results?buildId=5678"
+
+    def test_clean_url_canonicalizes_apis_pr_url(self):
+        from hermes_client.notifier import _clean_url
+
+        url = "http://ado:8080/tfs/DefaultCollection/Proj/_apis/git/repositories/Repo/pullRequests/12"
+        assert _clean_url(url) == "http://ado:8080/tfs/DefaultCollection/Proj/_git/Repo/pullrequest/12"
