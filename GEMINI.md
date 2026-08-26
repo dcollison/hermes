@@ -22,7 +22,7 @@ This document serves as the guide for AI coding assistants working in the Hermes
    - Listens on `POST /notify` to display Windows 11 toast notifications via `win11toast`.
    - Supports background Windows logon startup via Startup folder shortcut (`hermes-client startup install`).
 
-3. **`notify.py`** (`hermes-notify`):
+3. **`notify`** (`hermes-notify`):
    - Standalone CLI utility for sending manual or CI/CD broadcast notifications to the Hermes server.
 
 4. **`design/`**:

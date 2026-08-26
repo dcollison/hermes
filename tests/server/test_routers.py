@@ -318,7 +318,6 @@ class TestNotifyScript:
         # Standard
         import base64
 
-        # Remote
         import notify
 
         img_file = tmp_path / "test.png"
@@ -332,7 +331,6 @@ class TestNotifyScript:
         # Standard
         import os
 
-        # Remote
         import notify
 
         env_file = tmp_path / ".env"
@@ -345,7 +343,6 @@ class TestNotifyScript:
         # Standard
         import sys
 
-        # Remote
         import notify
 
         mock_resp = MagicMock()

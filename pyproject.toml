@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.10.6,<0.11.0"]
+requires = ["uv_build>=0.10.6,<0.12.0"]
 build-backend = "uv_build"
 
 [project]
@@ -50,7 +50,7 @@ dev = [
 
 [tool.isort]
 profile = "black"
-src_paths = ["hermes_client", "hermes_server", "tests"]
+src_paths = ["hermes_client", "hermes_server", "notify", "tests"]
 import_heading_stdlib = "Standard"
 import_heading_thirdparty = "Remote"
 import_heading_localfolder = "Local"
