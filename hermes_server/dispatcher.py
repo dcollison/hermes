@@ -3,28 +3,32 @@ import asyncio
 import logging
 from datetime import UTC, datetime
 
-# Remote
-import httpx
-
 # Local
 from .ado_client import get_user_groups
 from .database import append_log, get_all_clients, make_log_entry, save_client
+from .http_client import get_http_client
+from .models import NotificationPayload
 
 logger = logging.getLogger(__name__)
 
 
-async def _client_is_relevant(client: dict, notification: dict) -> bool:
+async def _client_is_relevant(
+    client: dict,
+    notification: dict | NotificationPayload,
+) -> bool:
     """Return True if this client should receive the notification.
 
     Checks event type subscription, then identity/group relevance.
 
     :param client: Client record dictionary.
-    :param notification: Formatted notification dictionary.
+    :param notification: Formatted notification dictionary or NotificationPayload.
     :returns: True if the client is eligible to receive the notification.
     """
+    notif = notification.to_dict() if isinstance(notification, NotificationPayload) else notification
+
     # --- subscription check ---
     subs = client.get("subscriptions", [])
-    event_type = notification.get("event_type", "")
+    event_type = notif.get("event_type", "")
     if event_type not in subs and "all" not in subs:
         return False
 
@@ -37,10 +41,10 @@ async def _client_is_relevant(client: dict, notification: dict) -> bool:
     client_display_name = (client.get("display_name") or "").lower().strip()
     client_name = (client.get("name") or "").lower().strip()
 
-    actor_id = notification.get("actor_id")
-    actor_name = (notification.get("actor") or "").lower().strip()
+    actor_id = notif.get("actor_id")
+    actor_name = (notif.get("actor") or "").lower().strip()
 
-    mentions: dict = notification.get("mentions", {})
+    mentions: dict = notif.get("mentions", {})
     mentioned_user_ids: list[str] = mentions.get("user_ids", [])
     mentioned_names: list[str] = [
         n.lower().strip() for n in mentions.get("names", []) if n.strip()
@@ -111,22 +115,27 @@ async def _client_is_relevant(client: dict, notification: dict) -> bool:
     return False
 
 
-async def dispatch(notification: dict) -> None:
+async def dispatch(notification: dict | NotificationPayload) -> None:
     """Send a notification to all eligible registered clients.
 
-    :param notification: Formatted notification dictionary.
+    :param notification: Formatted notification dictionary or NotificationPayload.
     """
+    notif_dict = (
+        notification.to_dict()
+        if isinstance(notification, NotificationPayload)
+        else notification
+    )
     clients = await get_all_clients()
     active = [c for c in clients if c.get("active")]
 
     # Evaluate relevance concurrently
     relevance = await asyncio.gather(
-        *[_client_is_relevant(c, notification) for c in active],
+        *[_client_is_relevant(c, notif_dict) for c in active],
         return_exceptions=False,
     )
 
     tasks = [
-        _send(client, notification)
+        _send(client, notif_dict)
         for client, relevant in zip(active, relevance)
         if relevant
     ]
@@ -142,9 +151,9 @@ async def _send(client: dict, notification: dict) -> None:
     success = True
     error_msg = None
     try:
-        async with httpx.AsyncClient(timeout=5.0) as http:
-            resp = await http.post(client["callback_url"], json=notification)
-            resp.raise_for_status()
+        http = get_http_client()
+        resp = await http.post(client["callback_url"], json=notification, timeout=5.0)
+        resp.raise_for_status()
         logger.info(f"Notified client '{client['name']}' ({client['callback_url']})")
         client["last_seen"] = datetime.now(UTC).isoformat()
         await save_client(client)
@@ -162,3 +171,4 @@ async def _send(client: dict, notification: dict) -> None:
             error=error_msg,
         ),
     )
+

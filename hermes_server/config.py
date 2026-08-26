@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     ADO_ORGANIZATION_URL: str = ""
     ADO_PAT: str = ""
     ADO_WEBHOOK_SECRET: str | None = None
+    ADO_SSL_VERIFY: bool = False
 
     # Storage
     DATA_DIR: str = "data"

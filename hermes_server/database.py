@@ -314,3 +314,27 @@ def make_log_entry(
         "error": error,
         "sent_at": datetime.now(UTC).isoformat(),
     }
+
+
+async def get_system_stats() -> dict:
+    """Retrieve system diagnostics, client counts, and subscription breakdowns.
+
+    :returns: Dictionary with system statistics.
+    """
+    async with _lock:
+        data = _read_json(CLIENTS_FILE)
+
+    clients = list(data.values())
+    active_clients = [c for c in clients if c.get("active")]
+
+    sub_counts: dict[str, int] = {}
+    for c in active_clients:
+        for sub in c.get("subscriptions", []):
+            sub_counts[sub] = sub_counts.get(sub, 0) + 1
+
+    return {
+        "total_clients": len(clients),
+        "active_clients": len(active_clients),
+        "subscriptions": sub_counts,
+    }
+

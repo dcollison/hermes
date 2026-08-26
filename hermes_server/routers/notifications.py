@@ -4,7 +4,6 @@ import logging
 from datetime import UTC, datetime
 
 # Remote
-import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -16,6 +15,7 @@ from ..database import (
     make_log_entry,
     save_client,
 )
+from ..http_client import get_http_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -87,9 +87,9 @@ async def send_manual_notification(
         success = True
         error_msg = None
         try:
-            async with httpx.AsyncClient(timeout=5.0) as http:
-                resp = await http.post(client["callback_url"], json=notification)
-                resp.raise_for_status()
+            http = get_http_client()
+            resp = await http.post(client["callback_url"], json=notification, timeout=5.0)
+            resp.raise_for_status()
             client["last_seen"] = datetime.now(UTC).isoformat()
             await save_client(client)
         except Exception as e:

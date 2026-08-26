@@ -362,3 +362,24 @@ class TestNotifyScript:
         assert payload["heading"] == "Test Title"
         assert payload["body"] == "Test Message"
         assert payload["filter_name_contains"] == "Alice"
+
+
+class TestHealthAndStatusEndpoints:
+    async def test_health_endpoint(self, client):
+        resp = await client.get("/health")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert data["service"] == "Hermes"
+        assert "version" in data
+
+    async def test_status_endpoint(self, client):
+        resp = await client.get("/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "ok"
+        assert "uptime_seconds" in data
+        assert "clients" in data
+        assert "ado_configured" in data
+        assert data["clients"]["total_clients"] == 0
+

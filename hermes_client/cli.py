@@ -299,11 +299,21 @@ def _cmd_run(args: argparse.Namespace) -> None:
         f"({settings.ADO_USER_ID or 'none'})",
     )
 
-    def _register():
+    def _heartbeat_loop():
         time.sleep(2)
         register_with_server(settings)
+        while True:
+            time.sleep(900)
+            try:
+                fresh_callback = resolve_callback_url(settings.LOCAL_PORT)
+                if fresh_callback != settings.CALLBACK_URL:
+                    settings.CALLBACK_URL = fresh_callback
+                    logger.info(f"Updated callback URL after IP change: {fresh_callback}")
+                register_with_server(settings, retries=2)
+            except Exception as e:
+                logger.debug(f"Periodic heartbeat failed: {e}")
 
-    threading.Thread(target=_register, daemon=True).start()
+    threading.Thread(target=_heartbeat_loop, daemon=True).start()
     uvicorn.run(
         app,
         host=settings.LOCAL_HOST,

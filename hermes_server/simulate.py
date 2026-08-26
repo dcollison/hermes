@@ -4,7 +4,7 @@ import json
 import urllib.request
 from urllib.error import URLError
 
-DEFAULT_URL = "http://localhost:8000/api/webhooks/ado"
+DEFAULT_URL = "http://localhost:8000/webhooks/ado"
 DEFAULT_USER = "simulate-user"
 
 EVENTS = [
