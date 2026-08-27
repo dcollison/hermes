@@ -17,9 +17,13 @@ import argparse
 import base64
 import os
 import sys
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-__version__ = "2.0.11"
+try:
+    __version__ = version("hermes")
+except PackageNotFoundError:
+    __version__ = "0.0.0.dev0"
 
 
 try:
