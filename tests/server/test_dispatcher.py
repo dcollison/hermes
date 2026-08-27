@@ -92,10 +92,13 @@ class TestClientIsRelevant:
         )
 
     async def test_all_subscription_matches_any_event(self):
-        client = _make_client(subscriptions=["all"])
+        client = _make_client(ado_user_id="user-1", subscriptions=["all"])
         for event_type in ("pr", "workitem", "pipeline", "manual"):
             assert (
-                await self._check(client, _make_notification(event_type=event_type))
+                await self._check(
+                    client,
+                    _make_notification(event_type=event_type, mentioned_user_ids=["user-1"]),
+                )
                 is True
             )
 
@@ -307,10 +310,10 @@ class TestClientIsRelevant:
             is False
         )
 
-    async def test_workitem_unassigned_broadcasts_to_subscribers_excluding_actor(self):
+    async def test_workitem_unassigned_not_broadcast_to_other_clients(self):
         notif = _make_notification(
             event_type="workitem",
-            actor="Dale Collison",
+            actor="Someone Else",
             meta={"assigned_to": ""},
             mentioned_user_ids=[],
             mentioned_names=[],
@@ -318,18 +321,50 @@ class TestClientIsRelevant:
         # Actor is suppressed
         assert (
             await self._check(
+                _make_client(display_name="Someone Else"),
+                notif,
+            )
+            is False
+        )
+        # Other subscribers also do not receive unassigned work item
+        assert (
+            await self._check(
+                _make_client(display_name="Bob Jones"),
+                notif,
+            )
+            is False
+        )
+        assert (
+            await self._check(
                 _make_client(display_name="Dale Collison"),
                 notif,
             )
             is False
         )
-        # Other subscriber receives it as a broadcast
+
+    async def test_workitem_assigned_to_other_not_delivered_to_client(self):
+        notif = _make_notification(
+            event_type="workitem",
+            actor="Alice",
+            meta={"assigned_to": "Bob Jones"},
+            mentioned_user_ids=[],
+            mentioned_names=["Bob Jones", "DOMAIN\\Bob.Jones", "Bob.Jones"],
+        )
+        # Target recipient receives it
         assert (
             await self._check(
                 _make_client(display_name="Bob Jones"),
                 notif,
             )
             is True
+        )
+        # Unrelated client does not receive it
+        assert (
+            await self._check(
+                _make_client(display_name="Dale Collison"),
+                notif,
+            )
+            is False
         )
 
 

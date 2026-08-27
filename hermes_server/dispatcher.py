@@ -71,15 +71,10 @@ async def _client_is_relevant(
         if not explicitly_mentioned:
             return False
 
-    # Check if this is a targeted event where the target was self-suppressed
-    # (e.g. a work item assigned to someone, but edited by that same person).
+    # Work item events are targeted notifications (to assignees, mentioned users, or groups).
+    # Unassigned work items or work item actions without mentions must never broadcast.
     if event_type == "workitem":
-        assigned_to = (
-            notification.get("meta", {}).get("assigned_to") or ""
-        ).strip()
-        # If the work item was assigned to someone, but there are no remaining mentions,
-        # it was targeted at the assignee who performed the action — do not broadcast.
-        if assigned_to and not mentioned_user_ids and not mentioned_names:
+        if not mentioned_user_ids and not mentioned_names:
             return False
 
     # If there are no mentions it's a broadcast — send to all subscribers
