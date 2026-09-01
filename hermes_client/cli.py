@@ -6,6 +6,7 @@ import os
 import sys
 import threading
 import time
+from pathlib import Path
 
 # Remote
 import httpx
@@ -16,7 +17,7 @@ from fastapi.responses import JSONResponse
 # Local
 from . import __version__, startup
 from .ado import resolve_callback_url, resolve_identity
-from .config import ClientSettings, default_env_file_path
+from .config import ClientSettings, _ensure_std_streams, default_env_file_path
 from .notifier import show_notification
 
 logger = logging.getLogger("hermes.client")
@@ -236,6 +237,8 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
         settings.ADO_USER_ID = args.ado_user_id
     if getattr(args, "ado_display_name", None):
         settings.ADO_DISPLAY_NAME = args.ado_display_name
+    if getattr(args, "log_file", None):
+        settings.LOG_FILE = args.log_file
 
     # Auto-resolve callback URL if still blank
     if not settings.CALLBACK_URL:
@@ -275,16 +278,34 @@ def _cmd_run(args: argparse.Namespace) -> None:
 
     :param args: Parsed command line arguments.
     """
+    settings = _resolve_runtime_settings(args)
+    log_level = getattr(args, "log_level", "info")
+    log_file = settings.LOG_FILE
+
+    # Ensure streams are configured (redirecting None streams to log file or devnull)
+    _ensure_std_streams(log_file)
+
     if os.name == "nt":
         os.system("")
 
-    settings = _resolve_runtime_settings(args)
-    log_level = getattr(args, "log_level", "info")
-
     # Configure the standard Python logger dynamically
+    handlers: list[logging.Handler] = []
+    if sys.stderr is not None:
+        handlers.append(logging.StreamHandler(sys.stderr))
+
+    if log_file and log_file.lower() != "devnull":
+        try:
+            log_path = Path(log_file).expanduser().resolve()
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            if not (hasattr(sys.stderr, "name") and sys.stderr.name == str(log_path)):
+                handlers.append(logging.FileHandler(log_path, encoding="utf-8"))
+        except Exception as e:
+            logger.warning(f"Could not open configured log file {log_file}: {e}")
+
     logging.basicConfig(
         level=log_level.upper(),
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        handlers=handlers or None,
         force=True,
     )
 
@@ -405,6 +426,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Override ADO display name",
     )
     run_p.add_argument(
+        "--log-file",
+        metavar="FILE",
+        help="Log file destination (default: %%APPDATA%%/Hermes/hermes-client.log or devnull)",
+    )
+    run_p.add_argument(
         "--log-level",
         default="info",
         choices=["debug", "info", "warning", "error", "critical"],
@@ -424,10 +450,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     """Main entrypoint for the hermes-client CLI."""
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    if hasattr(sys.stderr, "reconfigure"):
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    _ensure_std_streams()
 
     parser = _build_parser()
     args = parser.parse_args()

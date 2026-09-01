@@ -1,7 +1,14 @@
 # Standard
+import sys
 from unittest.mock import patch
 
-from hermes_client.config import ClientSettings, _find_env_file, default_env_file_path
+from hermes_client.config import (
+    ClientSettings,
+    _ensure_std_streams,
+    _find_env_file,
+    default_env_file_path,
+    default_log_file_path,
+)
 
 
 class TestClientConfig:
@@ -52,6 +59,87 @@ class TestClientConfig:
             assert str(p).endswith(".env.hermes-client")
             assert "Hermes" in str(p)
 
+    def test_default_log_file_path_appdata(self, tmp_path):
+        appdata_dir = tmp_path / "AppData"
+        with patch.dict("os.environ", {"APPDATA": str(appdata_dir)}):
+            p = default_log_file_path()
+            assert str(p).endswith("hermes-client.log")
+            assert "Hermes" in str(p)
+
+    def test_default_log_file_path_home(self, tmp_path):
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch("pathlib.Path.home", return_value=tmp_path),
+        ):
+            p = default_log_file_path()
+            assert str(p).endswith("hermes-client.log")
+            assert ".hermes" in str(p)
+
+    def test_ensure_std_streams_when_none(self, tmp_path):
+        orig_stdin = sys.stdin
+        orig_stdout = sys.stdout
+        orig_stderr = sys.stderr
+        target_log = tmp_path / "custom_client.log"
+
+        try:
+            sys.stdin = None
+            sys.stdout = None
+            sys.stderr = None
+
+            _ensure_std_streams(target_log)
+
+            assert sys.stdin is not None
+            assert sys.stdout is not None
+            assert sys.stderr is not None
+
+            sys.stdout.write("stdout test\n")
+            sys.stdout.flush()
+            sys.stderr.write("stderr test\n")
+            sys.stderr.flush()
+
+            content = target_log.read_text(encoding="utf-8")
+            assert "stdout test" in content
+            assert "stderr test" in content
+        finally:
+            if sys.stdout and sys.stdout is not orig_stdout:
+                sys.stdout.close()
+            if sys.stderr and sys.stderr is not orig_stderr:
+                sys.stderr.close()
+            if sys.stdin and sys.stdin is not orig_stdin:
+                sys.stdin.close()
+            sys.stdin = orig_stdin
+            sys.stdout = orig_stdout
+            sys.stderr = orig_stderr
+
+    def test_ensure_std_streams_devnull(self):
+        orig_stdin = sys.stdin
+        orig_stdout = sys.stdout
+        orig_stderr = sys.stderr
+
+        try:
+            sys.stdin = None
+            sys.stdout = None
+            sys.stderr = None
+
+            _ensure_std_streams("devnull")
+
+            assert sys.stdin is not None
+            assert sys.stdout is not None
+            assert sys.stderr is not None
+
+            sys.stdout.write("devnull stdout\n")
+            sys.stderr.write("devnull stderr\n")
+        finally:
+            if sys.stdout and sys.stdout is not orig_stdout:
+                sys.stdout.close()
+            if sys.stderr and sys.stderr is not orig_stderr:
+                sys.stderr.close()
+            if sys.stdin and sys.stdin is not orig_stdin:
+                sys.stdin.close()
+            sys.stdin = orig_stdin
+            sys.stdout = orig_stdout
+            sys.stderr = orig_stderr
+
     def test_is_fully_configured(self):
         settings = ClientSettings(
             SERVER_URL="http://localhost:8000",
@@ -77,6 +165,7 @@ class TestClientConfig:
             ADO_USER_ID="u1",
             ADO_DISPLAY_NAME="Bob",
             CLIENT_NAME="BobPC",
+            LOG_FILE="C:\\logs\\hermes.log",
         )
         written_path = settings.write_env_file(target)
         assert written_path == target
@@ -85,3 +174,5 @@ class TestClientConfig:
         assert "SERVER_URL=http://srv:8000" in content
         assert "ADO_USER_ID=u1" in content
         assert "ADO_DISPLAY_NAME=Bob" in content
+        assert "LOG_FILE=C:\\logs\\hermes.log" in content
+

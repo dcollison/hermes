@@ -5,6 +5,9 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Local
+from .config import _ensure_std_streams
+
 SHORTCUT_NAME = "Hermes Client.lnk"
 SHORTCUT_DESCRIPTION = "Hermes — Azure DevOps notification client"
 LEGACY_TASK_NAME = "HermesNotificationClient"
@@ -173,18 +176,9 @@ def _cleanup_legacy_task() -> None:
     except Exception:
         pass
 
-
-def _ensure_utf8_output() -> None:
-    """Ensure standard output streams handle UTF-8 characters on Windows."""
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    if hasattr(sys.stderr, "reconfigure"):
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
-
-
 def install() -> None:
     """Register the Hermes client in the Windows user Startup folder."""
-    _ensure_utf8_output()
+    _ensure_std_streams()
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         sys.exit(1)
@@ -221,7 +215,7 @@ def install() -> None:
 
 def remove() -> None:
     """Remove the Hermes client from the Windows Startup folder."""
-    _ensure_utf8_output()
+    _ensure_std_streams()
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         sys.exit(1)
@@ -247,7 +241,7 @@ def remove() -> None:
 
 def status() -> None:
     """Print whether the startup shortcut exists and its configuration."""
-    _ensure_utf8_output()
+    _ensure_std_streams()
     if sys.platform != "win32":
         print("Startup integration is only supported on Windows.")
         return
