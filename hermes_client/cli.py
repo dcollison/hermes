@@ -3,6 +3,7 @@ import argparse
 import getpass
 import logging
 import os
+import signal
 import sys
 import threading
 import time
@@ -11,11 +12,11 @@ from pathlib import Path
 # Remote
 import httpx
 import uvicorn
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 # Local
-from . import __version__, startup
+from . import __version__, process, startup
 from .azdo import resolve_callback_url, resolve_identity
 from .config import ClientSettings, _ensure_std_streams, default_env_file_path
 from .notifier import show_notification
@@ -44,12 +45,55 @@ async def receive_notification(request: Request) -> JSONResponse:
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
-    """Health check endpoint for the client notification listener.
+@app.get("/status")
+async def health() -> dict[str, object]:
+    """Health and status check endpoint for the client notification listener.
 
-    :returns: Dictionary with service status and client version.
+    :returns: Dictionary with service status, PID, and client metadata.
     """
-    return {"status": "ok", "service": "Hermes Client", "version": __version__}
+    settings: ClientSettings = getattr(app.state, "settings", None) or ClientSettings()
+    return {
+        "status": "ok",
+        "service": "Hermes Client",
+        "version": __version__,
+        "pid": os.getpid(),
+        "name": settings.CLIENT_NAME,
+        "server_url": settings.SERVER_URL,
+        "azdo_display_name": settings.AZDO_DISPLAY_NAME,
+    }
+
+
+@app.post("/shutdown")
+async def shutdown(request: Request) -> JSONResponse:
+    """Gracefully shutdown the running client listener process.
+
+    Only accepts shutdown requests originating from localhost.
+
+    :param request: Incoming FastAPI Request.
+    :returns: JSONResponse acknowledging shutdown.
+    :raises HTTPException: If request is not from localhost.
+    """
+    client_host = request.client.host if request.client else ""
+    if client_host not in ("127.0.0.1", "::1", "localhost", "testclient"):
+        raise HTTPException(
+            status_code=403,
+            detail="Shutdown only permitted from localhost",
+        )
+
+    def _delayed_shutdown() -> None:
+        time.sleep(0.3)
+        try:
+            os.kill(
+                os.getpid(),
+                signal.SIGINT if sys.platform == "win32" else signal.SIGTERM,
+            )
+        except Exception:
+            pass
+        time.sleep(1.0)
+        os._exit(0)
+
+    threading.Thread(target=_delayed_shutdown, daemon=True).start()
+    return JSONResponse({"status": "shutting_down", "pid": os.getpid()})
 
 
 # ---------------------------------------------------------------------------
@@ -85,6 +129,25 @@ def register_with_server(
             resp.raise_for_status()
             data = resp.json()
             logger.info(f"Registered with Hermes server (ID: {data.get('id')})")
+
+            # Check if a newer version is deployed on the server
+            server_ver = data.get("server_version")
+            if server_ver and process.parse_version(str(server_ver)) > process.parse_version(__version__):
+                logger.info(
+                    f"Newer server version available: v{server_ver} (client is v{__version__})",
+                )
+                try:
+                    show_notification(
+                        {
+                            "heading": "Hermes Update Available",
+                            "body": f"Server is running v{server_ver}. Run 'hermes-client upgrade' to update.",
+                            "status_image": "fallback",
+                            "event_type": "manual",
+                        }
+                    )
+                except Exception:
+                    pass
+
             return data
         except Exception as e:
             logger.warning(f"Registration attempt {attempt}/{retries} failed: {e}")
@@ -367,12 +430,126 @@ def _cmd_run(args: argparse.Namespace) -> None:
                 logger.debug(f"Periodic heartbeat failed: {e}")
 
     threading.Thread(target=_heartbeat_loop, daemon=True).start()
+    app.state.settings = settings
     uvicorn.run(
         app,
         host=settings.LOCAL_HOST,
         port=settings.LOCAL_PORT,
         log_level="warning",
     )
+
+
+# ---------------------------------------------------------------------------
+# Process management commands (start, stop, restart, status, upgrade)
+# ---------------------------------------------------------------------------
+
+
+def _cmd_start(args: argparse.Namespace) -> None:
+    """Start the Hermes client in the background.
+
+    :param args: Parsed command line arguments.
+    """
+    settings = ClientSettings()
+    running, info = process.is_client_running(settings.LOCAL_PORT, settings.LOCAL_HOST)
+    if running:
+        pid = info.get("pid", "unknown") if info else "unknown"
+        print(f"Hermes client is already running (PID: {pid}).")
+        return
+
+    print("Starting Hermes client in the background...", end=" ", flush=True)
+    started, info = process.start_client()
+    if started:
+        print("✓")
+        pid = info.get("pid", "unknown") if info else "unknown"
+        print(
+            f"Hermes client is running on http://127.0.0.1:{settings.LOCAL_PORT} (PID: {pid}).",
+        )
+    else:
+        print("✗")
+        print("Could not verify client startup. Run 'hermes-client run' to see error logs.")
+
+
+def _cmd_stop(args: argparse.Namespace) -> None:
+    """Stop the running background Hermes client.
+
+    :param args: Parsed command line arguments.
+    """
+    settings = ClientSettings()
+    running, _ = process.is_client_running(settings.LOCAL_PORT, settings.LOCAL_HOST)
+    if not running:
+        print("Hermes client is not running.")
+        return
+
+    print("Stopping Hermes client...", end=" ", flush=True)
+    stopped = process.stop_client(settings.LOCAL_PORT, settings.LOCAL_HOST)
+    if stopped:
+        print("✓")
+        print("Hermes client stopped.")
+    else:
+        print("✗")
+        print("Could not cleanly stop Hermes client.")
+
+
+def _cmd_restart(args: argparse.Namespace) -> None:
+    """Restart the background Hermes client.
+
+    :param args: Parsed command line arguments.
+    """
+    settings = ClientSettings()
+    print("Restarting Hermes client...", end=" ", flush=True)
+    started, info = process.restart_client()
+    if started:
+        print("✓")
+        pid = info.get("pid", "unknown") if info else "unknown"
+        print(
+            f"Hermes client restarted on http://127.0.0.1:{settings.LOCAL_PORT} (PID: {pid}).",
+        )
+    else:
+        print("✗")
+        print("Could not restart Hermes client. Check logs or run 'hermes-client run'.")
+
+
+def _cmd_status(args: argparse.Namespace) -> None:
+    """Display runtime status and configuration of the Hermes client.
+
+    :param args: Parsed command line arguments.
+    """
+    settings = ClientSettings()
+    running, info = process.is_client_running(settings.LOCAL_PORT, settings.LOCAL_HOST)
+
+    print()
+    print("═" * 50)
+    print("  Hermes Client Status")
+    print("═" * 50)
+    if running and info:
+        print(f"  Status       : RUNNING (PID: {info.get('pid', 'unknown')})")
+        print(f"  Version      : {info.get('version', __version__)}")
+        print(f"  Listener     : http://{settings.LOCAL_HOST}:{settings.LOCAL_PORT}/notify")
+        print(f"  Server URL   : {info.get('server_url', settings.SERVER_URL)}")
+        print(f"  Display Name : {info.get('azdo_display_name', settings.AZDO_DISPLAY_NAME)}")
+    else:
+        print("  Status       : STOPPED (not running)")
+        print(f"  Version      : {__version__}")
+        print(f"  Server URL   : {settings.SERVER_URL}")
+        print(f"  Display Name : {settings.AZDO_DISPLAY_NAME or '(not set)'}")
+
+    print()
+    startup.status()
+
+
+def _cmd_upgrade(args: argparse.Namespace) -> None:
+    """Perform in-place client upgrade and background restart.
+
+    :param args: Parsed command line arguments.
+    """
+    print()
+    print("═" * 50)
+    print("  Hermes Client — Self Upgrade")
+    print("═" * 50)
+    package = getattr(args, "package", None) or "hermes"
+    restart = not getattr(args, "no_restart", False)
+    extra = getattr(args, "extra_args", None)
+    process.upgrade_client(package_name=package, restart=restart, extra_args=extra)
 
 
 # ---------------------------------------------------------------------------
@@ -417,11 +594,52 @@ def _build_parser() -> argparse.ArgumentParser:
     # configure
     sub.add_parser(
         "configure",
-        help="Resolve ADO identity from a PAT and write the config file",
+        help="Resolve AzDO identity from a PAT and write the config file",
+    )
+
+    # start
+    sub.add_parser(
+        "start",
+        help="Start the Hermes client in the background",
+    )
+
+    # stop
+    sub.add_parser(
+        "stop",
+        help="Stop the running background Hermes client",
+    )
+
+    # restart
+    sub.add_parser(
+        "restart",
+        help="Restart the background Hermes client",
+    )
+
+    # status
+    sub.add_parser(
+        "status",
+        help="Show runtime status and startup configuration",
+    )
+
+    # upgrade / update
+    upgrade_p = sub.add_parser(
+        "upgrade",
+        aliases=["update"],
+        help="Upgrade Hermes package and restart the background client",
+    )
+    upgrade_p.add_argument(
+        "--package",
+        default="hermes",
+        help="Package name or specifier to upgrade (default: hermes)",
+    )
+    upgrade_p.add_argument(
+        "--no-restart",
+        action="store_true",
+        help="Do not restart the client after upgrading",
     )
 
     # run
-    run_p = sub.add_parser("run", help="Start the notification listener")
+    run_p = sub.add_parser("run", help="Start the notification listener (foreground)")
     run_p.add_argument("--server", metavar="URL", help="Hermes server URL")
     run_p.add_argument("--name", metavar="TEXT", help="Client display name")
     run_p.add_argument("--host", metavar="HOST", help="Local listen host")
@@ -429,13 +647,17 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--callback-url", metavar="URL", help="Override callback URL")
     run_p.add_argument(
         "--ado-user-id",
+        "--azdo-user-id",
+        dest="ado_user_id",
         metavar="GUID",
-        help="Override ADO identity GUID",
+        help="Override AzDO identity GUID",
     )
     run_p.add_argument(
         "--ado-display-name",
+        "--azdo-display-name",
+        dest="ado_display_name",
         metavar="NAME",
-        help="Override ADO display name",
+        help="Override AzDO display name",
     )
     run_p.add_argument(
         "--log-file",
@@ -469,6 +691,16 @@ def main() -> None:
 
     if args.command == "configure":
         _cmd_configure(args)
+    elif args.command == "start":
+        _cmd_start(args)
+    elif args.command == "stop":
+        _cmd_stop(args)
+    elif args.command == "restart":
+        _cmd_restart(args)
+    elif args.command == "status":
+        _cmd_status(args)
+    elif args.command in ("upgrade", "update"):
+        _cmd_upgrade(args)
     elif args.command == "run":
         _cmd_run(args)
     elif args.command == "startup":

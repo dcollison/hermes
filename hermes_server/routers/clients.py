@@ -46,6 +46,7 @@ class ClientResponse(BaseModel):
     display_name: str
     subscriptions: list[str]
     active: bool
+    server_version: str | None = None
 
 
 def _to_response(client: dict) -> ClientResponse:
@@ -54,6 +55,9 @@ def _to_response(client: dict) -> ClientResponse:
     :param client: Client record dictionary.
     :returns: ClientResponse schema instance.
     """
+    # Local
+    from .. import __version__
+
     uid = client.get("azdo_user_id") or client.get("ado_user_id", "")
     return ClientResponse(
         id=client["id"],
@@ -64,6 +68,7 @@ def _to_response(client: dict) -> ClientResponse:
         display_name=client.get("display_name", ""),
         subscriptions=client.get("subscriptions", []),
         active=client.get("active", True),
+        server_version=__version__,
     )
 
 

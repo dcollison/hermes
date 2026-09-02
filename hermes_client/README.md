@@ -49,6 +49,33 @@ Example session:
 
 The config file is saved to `%APPDATA%\Hermes\.env.hermes-client` on Windows.
 
+## Running Hermes Client
+
+### Background mode (recommended)
+
+Start, stop, restart, or inspect Hermes running in the background without needing an open terminal:
+
+```powershell
+hermes-client start     # Start in the background
+hermes-client status    # Show running status, PID, and version
+hermes-client stop      # Stop the background client
+hermes-client restart   # Restart the background client
+```
+
+### Upgrading Hermes
+
+To upgrade to the latest version, run the self-upgrade command. It stops the active client, upgrades the package via `uv` or `pip`, and automatically restarts in the background:
+
+```powershell
+hermes-client upgrade
+```
+
+### Foreground / Debug mode
+
+```powershell
+hermes-client run       # Run in the foreground with live console logs
+```
+
 ## Register to start at login
 
 ```powershell
@@ -56,17 +83,11 @@ hermes-client startup install
 ```
 
 This creates a shortcut in your Windows Startup folder that launches Hermes at login with
-no console window. Re-run after upgrading the package.
+no console window.
 
 ```powershell
 hermes-client startup status   # check it's registered
 hermes-client startup remove   # unregister
-```
-
-## Start manually
-
-```powershell
-hermes-client run
 ```
 
 ## How notification routing works

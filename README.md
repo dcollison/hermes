@@ -87,17 +87,26 @@ Hermes stores all state in the `data/` directory:
    hermes-client configure
    ```
 
-3. **Run**
+3. **Run (Background or Foreground)**
    ```bash
-   hermes-client run
+   hermes-client start     # Start in the background (no open terminal required)
+   hermes-client status    # Check status and PID
+   hermes-client run       # Or run in foreground for live logs
    ```
    The client starts a local server on port 9000 and registers with the Hermes server automatically.
 
-4. **Auto-start on login (recommended)**
+4. **Auto-start on login (optional)**
 
-   Install the background Startup shortcut to run the client invisibly on Windows logon:
+   Install the background Startup shortcut to run the client automatically on Windows logon:
    ```bash
    hermes-client startup install
+   ```
+
+5. **Upgrading Hermes**
+
+   Easily upgrade in one command without manual restarts:
+   ```bash
+   hermes-client upgrade
    ```
 
 ---

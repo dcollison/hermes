@@ -210,3 +210,149 @@ class TestStartupNotification:
             sys.stderr = orig_stderr
 
 
+class TestClientEndpoints:
+    @pytest.mark.asyncio
+    async def test_health_and_status(self):
+        # Remote
+        from httpx import ASGITransport, AsyncClient
+
+        from hermes_client.cli import app
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.get("/health")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["status"] == "ok"
+            assert "version" in data
+            assert "pid" in data
+
+            status_resp = await client.get("/status")
+            assert status_resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_shutdown_endpoint(self):
+        # Remote
+        from httpx import ASGITransport, AsyncClient
+
+        from hermes_client.cli import app
+
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            with patch("threading.Thread") as mock_thread_cls:
+                resp = await client.post("/shutdown")
+                assert resp.status_code == 200
+                assert resp.json()["status"] == "shutting_down"
+                mock_thread_cls.assert_called_once()
+
+
+class TestProcessCommands:
+    def test_cmd_start_when_not_running(self):
+        # Standard
+        import argparse
+
+        from hermes_client.cli import _cmd_start
+
+        with (
+            patch("hermes_client.process.is_client_running", return_value=(False, None)),
+            patch("hermes_client.process.start_client", return_value=(True, {"pid": 111})),
+            patch("builtins.print") as mock_print,
+        ):
+            _cmd_start(argparse.Namespace())
+            assert any("111" in str(c) for c in mock_print.call_args_list)
+
+    def test_cmd_start_when_already_running(self):
+        # Standard
+        import argparse
+
+        from hermes_client.cli import _cmd_start
+
+        with (
+            patch("hermes_client.process.is_client_running", return_value=(True, {"pid": 222})),
+            patch("builtins.print") as mock_print,
+        ):
+            _cmd_start(argparse.Namespace())
+            assert any("already running" in str(c) for c in mock_print.call_args_list)
+
+    def test_cmd_stop(self):
+        # Standard
+        import argparse
+
+        from hermes_client.cli import _cmd_stop
+
+        with (
+            patch("hermes_client.process.is_client_running", return_value=(True, {"pid": 333})),
+            patch("hermes_client.process.stop_client", return_value=True),
+            patch("builtins.print") as mock_print,
+        ):
+            _cmd_stop(argparse.Namespace())
+            assert any("stopped" in str(c) for c in mock_print.call_args_list)
+
+    def test_cmd_restart(self):
+        # Standard
+        import argparse
+
+        from hermes_client.cli import _cmd_restart
+
+        with (
+            patch("hermes_client.process.restart_client", return_value=(True, {"pid": 444})),
+            patch("builtins.print") as mock_print,
+        ):
+            _cmd_restart(argparse.Namespace())
+            assert any("restarted" in str(c) for c in mock_print.call_args_list)
+
+    def test_cmd_status(self):
+        # Standard
+        import argparse
+
+        from hermes_client.cli import _cmd_status
+
+        with (
+            patch("hermes_client.process.is_client_running", return_value=(True, {"pid": 555, "version": "2.0.0"})),
+            patch("hermes_client.startup.status"),
+            patch("builtins.print") as mock_print,
+        ):
+            _cmd_status(argparse.Namespace())
+            assert any("RUNNING" in str(c) for c in mock_print.call_args_list)
+
+    def test_cmd_upgrade(self):
+        # Standard
+        import argparse
+
+        from hermes_client.cli import _cmd_upgrade
+
+        with (
+            patch("hermes_client.process.upgrade_client", return_value=True) as mock_up,
+            patch("builtins.print"),
+        ):
+            _cmd_upgrade(argparse.Namespace(package="hermes", no_restart=False))
+            mock_up.assert_called_once_with(package_name="hermes", restart=True, extra_args=None)
+
+
+class TestRegisterWithServerUpdateCheck:
+    def test_notifies_when_server_version_is_newer(self):
+        from hermes_client.cli import register_with_server
+
+        settings = ClientSettings(
+            SERVER_URL="http://srv:8000",
+            CALLBACK_URL="http://host:9000/notify",
+            AZDO_USER_ID="u1",
+            AZDO_DISPLAY_NAME="Dale",
+            CLIENT_NAME="DalePC",
+        )
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"id": "1", "server_version": "99.0.0"}
+
+        with (
+            patch("httpx.post", return_value=mock_resp),
+            patch("hermes_client.cli.show_notification") as mock_toast,
+        ):
+            register_with_server(settings)
+            mock_toast.assert_called_once()
+            notif = mock_toast.call_args[0][0]
+            assert "Update Available" in notif["heading"]
+
+
+

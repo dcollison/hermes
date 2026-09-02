@@ -83,6 +83,7 @@ class TestClientRegistration:
         data = resp.json()
         assert data["display_name"] == "Dale"
         assert data["subscriptions"] == ["pr", "workitem"]
+        assert data.get("server_version") is not None
 
     @pytest.mark.asyncio
     async def test_re_register_same_callback_is_idempotent(self, client):
