@@ -149,6 +149,16 @@ def show_notification(payload: dict[str, object]) -> None:
     """
     heading: str = str(payload.get("heading", __app_name__))
     body: str = str(payload.get("body", ""))
+    actor = str(payload.get("actor") or "").strip()
+    if (
+        payload.get("event_type") == "manual"
+        and actor
+        and actor != "Hermes"
+        and actor not in body
+        and actor not in heading
+    ):
+        body = f"{body}\n— {actor}" if body else f"— {actor}"
+
     url: str = _clean_url(str(payload.get("url") or ""))
     avatar_b64: str | None = payload.get("avatar_b64")  # type: ignore[assignment]
     raw_status_key = payload.get("status_image")

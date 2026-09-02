@@ -258,6 +258,35 @@ class TestManualNotifications:
         assert resp.json()["dispatched_to"] == 1
 
     @pytest.mark.asyncio
+    async def test_send_manual_passes_custom_actor(self, client):
+        await client.post(
+            "/clients/register",
+            json={
+                **REGISTER_BODY,
+                "subscriptions": ["manual"],
+            },
+        )
+
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+
+        with patch("httpx.AsyncClient") as mock_http:
+            mock_http.return_value.__aenter__ = AsyncMock(
+                return_value=mock_http.return_value,
+            )
+            mock_http.return_value.__aexit__ = AsyncMock(return_value=False)
+            mock_http.return_value.post = AsyncMock(return_value=mock_resp)
+
+            resp = await client.post(
+                "/notifications/send",
+                json={"heading": "Deploy", "body": "Going live", "actor": "Stephen"},
+            )
+
+        assert resp.status_code == 200
+        sent_payload = mock_http.return_value.post.call_args[1]["json"]
+        assert sent_payload["actor"] == "Stephen"
+
+    @pytest.mark.asyncio
     async def test_send_manual_not_delivered_to_non_subscriber(self, client):
         await client.post(
             "/clients/register",
@@ -339,18 +368,43 @@ class TestNotifyScript:
         assert decoded == b"\x89PNG\r\n\x1a\n"
 
     def test_load_dotenv(self, tmp_path):
-        # Standard
-        import os
-
         import notify
 
         env_file = tmp_path / ".env"
         env_file.write_text("TEST_KEY=hello_world\n# Comment\nINVALID\n", encoding="utf-8")
-        with patch.dict("os.environ", {}, clear=True):
-            notify._load_dotenv(env_file)
-            assert os.environ.get("TEST_KEY") == "hello_world"
+        loaded = notify._load_dotenv(env_file)
+        assert loaded.get("TEST_KEY") == "hello_world"
 
-    def test_main_sends_notification(self):
+    def test_resolve_default_server(self):
+        import notify
+
+        with patch.dict("os.environ", {}, clear=True):
+            # Fallback
+            assert notify._resolve_default_server({}) == "http://localhost:8000"
+
+            # Config file SERVER_URL
+            assert notify._resolve_default_server({"SERVER_URL": "http://config-server:8000"}) == "http://config-server:8000"
+
+            # Env var override
+            with patch.dict("os.environ", {"HERMES_SERVER_URL": "http://env-server:8000"}):
+                assert notify._resolve_default_server({"SERVER_URL": "http://config-server:8000"}) == "http://env-server:8000"
+
+    def test_resolve_default_sender(self):
+        import notify
+
+        with patch.dict("os.environ", {}, clear=True):
+            # From AZDO_DISPLAY_NAME in config
+            assert notify._resolve_default_sender({"AZDO_DISPLAY_NAME": "Dale"}) == "Dale"
+
+            # From HERMES_NOTIFY_FROM env var override
+            with patch.dict("os.environ", {"HERMES_NOTIFY_FROM": "Taiye"}):
+                assert notify._resolve_default_sender({"AZDO_DISPLAY_NAME": "Dale"}) == "Taiye"
+
+            # Fallback to USERNAME env var
+            with patch.dict("os.environ", {"USERNAME": "Simon"}, clear=True):
+                assert notify._resolve_default_sender({}) == "Simon"
+
+    def test_main_sends_notification_with_sender(self):
         # Standard
         import sys
 
@@ -360,7 +414,15 @@ class TestNotifyScript:
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {"message": "Notification sent to 1 client(s)"}
 
-        test_args = ["notify.py", "Test Title", "Test Message", "--filter-name", "Dale"]
+        test_args = [
+            "notify.py",
+            "Test Title",
+            "Test Message",
+            "--filter-name",
+            "Dale",
+            "--from",
+            "Stephen",
+        ]
         with (
             patch.object(sys, "argv", test_args),
             patch("httpx.post", return_value=mock_resp) as mock_post,
@@ -373,6 +435,7 @@ class TestNotifyScript:
         assert payload["heading"] == "Test Title"
         assert payload["body"] == "Test Message"
         assert payload["filter_name_contains"] == "Dale"
+        assert payload["actor"] == "Stephen"
 
 
 class TestHealthAndStatusEndpoints:

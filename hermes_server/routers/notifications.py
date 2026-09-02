@@ -28,6 +28,8 @@ class ManualNotificationRequest(BaseModel):
     avatar_b64: str | None = None
     filter_name_contains: str | None = None
     filter_project: str | None = None
+    actor: str | None = None
+    sender: str | None = None
 
 
 class ManualNotificationResponse(BaseModel):
@@ -70,6 +72,8 @@ async def send_manual_notification(
             message="No matching clients subscribed to manual notifications",
         )
 
+    actor = (body.actor or body.sender or "Hermes").strip() or "Hermes"
+
     notification = {
         "event_type": "manual",
         "heading": body.heading,
@@ -77,7 +81,7 @@ async def send_manual_notification(
         "url": body.url or "",
         "project": body.filter_project or "",
         "avatar_b64": body.avatar_b64,
-        "actor": "Hermes",
+        "actor": actor,
         "actor_id": None,
         "mentions": {"user_ids": [], "names": []},
         "meta": {},

@@ -266,6 +266,55 @@ class TestShowNotification:
         _, _, url_passed, _, _ = mock_display.call_args[0]
         assert url_passed == "http://ado/pr/1?_a=overview&iteration=2"
 
+    def test_show_notification_manual_includes_sender_attribution(self):
+        payload = {
+            "heading": "Heads up",
+            "body": "Deploying update",
+            "event_type": "manual",
+            "actor": "Dale",
+        }
+        with (
+            patch("hermes_client.notifier._display") as mock_display,
+            patch("hermes_client.notifier._get_bundled_icon", return_value=None),
+        ):
+            show_notification(payload)
+
+        heading, body, _, _, _ = mock_display.call_args[0]
+        assert heading == "Heads up"
+        assert body == "Deploying update\n— Dale"
+
+    def test_show_notification_manual_avoids_duplicate_attribution(self):
+        payload = {
+            "heading": "Heads up",
+            "body": "Deploying update from Dale",
+            "event_type": "manual",
+            "actor": "Dale",
+        }
+        with (
+            patch("hermes_client.notifier._display") as mock_display,
+            patch("hermes_client.notifier._get_bundled_icon", return_value=None),
+        ):
+            show_notification(payload)
+
+        _, body, _, _, _ = mock_display.call_args[0]
+        assert body == "Deploying update from Dale"
+
+    def test_show_notification_manual_ignores_generic_hermes_actor(self):
+        payload = {
+            "heading": "Heads up",
+            "body": "System broadcast",
+            "event_type": "manual",
+            "actor": "Hermes",
+        }
+        with (
+            patch("hermes_client.notifier._display") as mock_display,
+            patch("hermes_client.notifier._get_bundled_icon", return_value=None),
+        ):
+            show_notification(payload)
+
+        _, body, _, _, _ = mock_display.call_args[0]
+        assert body == "System broadcast"
+
 
 class TestNotifierCleanUrl:
     def test_clean_url_unescapes_entities(self):

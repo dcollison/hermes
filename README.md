@@ -140,15 +140,31 @@ SUBSCRIPTIONS=["pr", "workitem", "manual"]
 
 ## Manual Notifications
 
-Push a custom notification to all or specific clients via the API:
+### Using the CLI (`hermes-notify`)
+
+`hermes-notify` automatically reads the server URL and your sender identity from your client configuration (`%APPDATA%\Hermes\.env.hermes-client` or `.env`):
+
+```powershell
+# Send a broadcast to all clients
+hermes-notify "Heads up" "Dev database is restarting in 5 minutes"
+
+# Specify a custom sender identity (defaults to your AzDO display name or username)
+hermes-notify "Build Failed" "Main branch pipeline failed" --from "CI Runner"
+
+# Filter recipients by name or project
+hermes-notify "Code Review" "PR #42 is ready for review" --filter-name "Dale" --url "http://your-azdo/pr/42"
+```
+
+### Using the REST API
 
 ```bash
-# Send to all clients subscribed to "manual"
+# Send to all clients subscribed to "manual" with sender attribution
 curl -X POST http://your-server:8000/notifications/send \
   -H "Content-Type: application/json" \
   -d '{
     "heading": "Deployment Notice",
     "body": "Prod deployment starts in 10 minutes. Please save your work.",
+    "actor": "Dale",
     "url": "http://your-azdo/release/123"
   }'
 
