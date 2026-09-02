@@ -264,12 +264,18 @@ async def _format_pr(
     if event_type == "git.pullrequest.merged":
         return None
 
+    text, link = _extract_message(payload)
+
     if event_type == "ms.vss-code.git-pullrequest-comment-event":
         pr = resource.get("pullRequest", {})
         actor = resource.get("author", {})
     else:
         pr = resource
-        actor = pr.get("createdBy", {})
+        actor = (
+            pr.get("closedBy")
+            or pr.get("autoCompleteSetBy")
+            or pr.get("createdBy", {})
+        )
 
     pr_id = pr.get("pullRequestId", resource.get("pullRequestId", ""))
     if not pr_id:
@@ -282,6 +288,14 @@ async def _format_pr(
     created_by = pr.get("createdBy", {})
     reviewers: list[dict] = pr.get("reviewers", [])
 
+    # If actor is not explicitly closedBy/autoCompleteSetBy, check if a reviewer is the actor in the message
+    if not pr.get("closedBy") and not pr.get("autoCompleteSetBy"):
+        for rev in reviewers:
+            rev_name = rev.get("displayName")
+            if rev_name and (text.startswith(rev_name) or rev_name in text):
+                actor = rev
+                break
+
     # In ADO Service Hooks 1.0, PR completions are sent as `updated` events with status: completed
     if event_type == "git.pullrequest.updated" and status.lower() == "completed":
         event_type = "git.pullrequest.completed"
@@ -289,9 +303,39 @@ async def _format_pr(
     actor_id = actor.get("id")
     actor_name = actor.get("displayName", "Someone")
 
-    text, link = _extract_message(payload)
+    is_completed = event_type == "git.pullrequest.completed" or status.lower() == "completed"
+    is_approved = "approved" in text.lower() or "approval" in text.lower()
 
-    if event_type == "git.pullrequest.completed":
+    if is_completed and is_approved:
+        heading = "PR Approved & Completed"
+        status_image = "pr completed"
+        default_body = f"PR #{pr_id} approved and completed"
+    elif is_completed:
+        heading = "PR Completed"
+        status_image = "pr completed"
+        default_body = f"PR #{pr_id} completed"
+    elif event_type == "git.pullrequest.created":
+        heading = "New Pull Request"
+        status_image = "new pr"
+        default_body = f"PR #{pr_id} created"
+    elif is_approved:
+        heading = "PR Approved"
+        status_image = "pr updated"
+        default_body = f"PR #{pr_id} approved"
+    elif "rejected" in text.lower():
+        heading = "PR Rejected"
+        status_image = "failed"
+        default_body = f"PR #{pr_id} rejected"
+    elif event_type == "ms.vss-code.git-pullrequest-comment-event":
+        heading = "PR Comment"
+        status_image = "pr comment"
+        default_body = f"PR #{pr_id} comment"
+    else:
+        heading = _PR_HEADINGS.get(event_type, "Pull Request")
+        status_image = _PR_STATUS_IMAGES.get(event_type, "pr updated")
+        default_body = f"PR #{pr_id} updated ({status})"
+
+    if is_completed:
         # Notify reviewers AND the author of PR completion
         mentioned = _mentions(*reviewers, actor_id=actor_id, message=text)
         author_id = created_by.get("id")
@@ -311,7 +355,11 @@ async def _format_pr(
             message=text,
         )
     else:
-        mentioned = _mentions(*reviewers, actor_id=actor_id, message=text)
+        author_id = created_by.get("id")
+        targets = list(reviewers)
+        if author_id and author_id != actor_id:
+            targets.append(created_by)
+        mentioned = _mentions(*targets, actor_id=actor_id, message=text)
 
     url = link or (
         pr.get("url")
@@ -320,16 +368,15 @@ async def _format_pr(
     )
 
     avatar = await get_user_avatar_b64(actor_id)
-    default_body = f"PR #{pr_id} completed" if event_type == "git.pullrequest.completed" else f"PR #{pr_id} updated ({status})"
 
     return {
         "event_type": "pr",
-        "heading": _PR_HEADINGS.get(event_type, "Pull Request"),
+        "heading": heading,
         "body": text or default_body,
         "url": _clean_url(url),
         "project": project,
         "avatar_b64": avatar,
-        "status_image": _PR_STATUS_IMAGES.get(event_type),
+        "status_image": status_image,
         "actor": actor_name,
         "actor_id": actor_id,
         "mentions": mentioned,

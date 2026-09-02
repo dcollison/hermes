@@ -164,6 +164,61 @@ class TestFormatPR:
         assert "author-id" in notif["mentions"]["user_ids"]
         assert "reviewer-id" in notif["mentions"]["user_ids"]
 
+    async def test_pr_approved_and_completed_heading_and_actor(self):
+        from hermes_server.formatter import format_webhook
+
+        payload = self._payload(
+            "git.pullrequest.updated",
+            {"status": "completed"},
+        )
+        payload["message"] = {"text": "Bob approved pull request 42"}
+
+        notif = await format_webhook("git.pullrequest.updated", payload)
+        assert notif is not None
+        assert notif["heading"] == "PR Approved & Completed"
+        assert notif["status_image"] == "pr completed"
+        assert notif["actor"] == "Bob"
+        assert notif["actor_id"] == "reviewer-id"
+        # Bob approved, so author Alice is notified, Bob is excluded
+        assert "author-id" in notif["mentions"]["user_ids"]
+        assert "reviewer-id" not in notif["mentions"]["user_ids"]
+
+    async def test_pr_approved_active_heading_and_actor(self):
+        from hermes_server.formatter import format_webhook
+
+        payload = self._payload(
+            "git.pullrequest.updated",
+            {"status": "active"},
+        )
+        payload["message"] = {"text": "Bob approved pull request 42"}
+
+        notif = await format_webhook("git.pullrequest.updated", payload)
+        assert notif is not None
+        assert notif["heading"] == "PR Approved"
+        assert notif["status_image"] == "pr updated"
+        assert notif["actor"] == "Bob"
+        assert notif["actor_id"] == "reviewer-id"
+        assert "author-id" in notif["mentions"]["user_ids"]
+        assert "reviewer-id" not in notif["mentions"]["user_ids"]
+
+    async def test_pr_completed_closed_by_actor(self):
+        from hermes_server.formatter import format_webhook
+
+        payload = self._payload(
+            "git.pullrequest.updated",
+            {
+                "status": "completed",
+                "closedBy": {"id": "closer-id", "displayName": "Charlie"},
+            },
+        )
+        payload["message"] = {"text": "Charlie marked the pull request as completed"}
+
+        notif = await format_webhook("git.pullrequest.updated", payload)
+        assert notif is not None
+        assert notif["heading"] == "PR Completed"
+        assert notif["actor"] == "Charlie"
+        assert notif["actor_id"] == "closer-id"
+
     async def test_pr_merged_attempt_event_returns_none(self):
         # Background PR merge attempts (git.pullrequest.merged) should be ignored
         notif = await self._format("git.pullrequest.merged")
