@@ -16,7 +16,7 @@ from fastapi.responses import JSONResponse
 
 # Local
 from . import __version__, startup
-from .ado import resolve_callback_url, resolve_identity
+from .azdo import resolve_callback_url, resolve_identity
 from .config import ClientSettings, _ensure_std_streams, default_env_file_path
 from .notifier import show_notification
 
@@ -70,8 +70,9 @@ def register_with_server(
     payload = {
         "name": settings.CLIENT_NAME,
         "callback_url": settings.CALLBACK_URL,
-        "ado_user_id": settings.ADO_USER_ID,
-        "display_name": settings.ADO_DISPLAY_NAME,
+        "azdo_user_id": settings.AZDO_USER_ID,
+        "ado_user_id": settings.AZDO_USER_ID,
+        "display_name": settings.AZDO_DISPLAY_NAME,
         "subscriptions": settings.SUBSCRIPTIONS,
     }
     for attempt in range(1, retries + 1):
@@ -116,7 +117,7 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
 
 
 def _cmd_configure(args: argparse.Namespace) -> None:
-    """Interactive wizard that resolves the user's ADO identity via their PAT
+    """Interactive wizard that resolves the user's AzDO identity via their PAT
     and writes a complete .env.hermes-client config file.
 
     :param args: Parsed command line arguments.
@@ -136,45 +137,45 @@ def _cmd_configure(args: argparse.Namespace) -> None:
     print("── Hermes Server ──────────────────────────────────────────")
     settings.SERVER_URL = _prompt("Hermes server URL", settings.SERVER_URL)
 
-    # --- ADO ---
+    # --- AzDO ---
     print()
     print("── Azure DevOps ────────────────────────────────────────────")
     print("  Your PAT needs at least Read access to Identity and Profile.")
-    settings.ADO_ORGANIZATION_URL = _prompt(
-        "ADO organisation URL (e.g. http://ado-server/DefaultCollection)",
-        settings.ADO_ORGANIZATION_URL,
+    settings.AZDO_ORGANIZATION_URL = _prompt(
+        "AzDO organisation URL (e.g. http://ado-server/DefaultCollection)",
+        settings.AZDO_ORGANIZATION_URL,
     )
-    settings.ADO_PAT = _prompt("Personal Access Token", settings.ADO_PAT, secret=True)
+    settings.AZDO_PAT = _prompt("Personal Access Token", settings.AZDO_PAT, secret=True)
 
     # --- Resolve identity ---
     print()
-    print("  Resolving your ADO identity…", end=" ", flush=True)
+    print("  Resolving your AzDO identity…", end=" ", flush=True)
     try:
-        identity = resolve_identity(settings.ADO_ORGANIZATION_URL, settings.ADO_PAT)
-        settings.ADO_USER_ID = identity["user_id"]
-        settings.ADO_DISPLAY_NAME = identity["display_name"]
+        identity = resolve_identity(settings.AZDO_ORGANIZATION_URL, settings.AZDO_PAT)
+        settings.AZDO_USER_ID = identity["user_id"]
+        settings.AZDO_DISPLAY_NAME = identity["display_name"]
         print("✓")
-        print(f"  Name : {settings.ADO_DISPLAY_NAME}")
-        print(f"  ID   : {settings.ADO_USER_ID}")
+        print(f"  Name : {settings.AZDO_DISPLAY_NAME}")
+        print(f"  ID   : {settings.AZDO_USER_ID}")
     except httpx.HTTPStatusError as e:
         print("✗")
-        print(f"\n  ERROR: ADO returned HTTP {e.response.status_code}.")
+        print(f"\n  ERROR: AzDO returned HTTP {e.response.status_code}.")
         if e.response.status_code == 401:
             print("  The PAT may be invalid or expired, or the URL is wrong.")
         print("  You can enter the values manually below.")
-        settings.ADO_USER_ID = _prompt("ADO user ID (GUID)", settings.ADO_USER_ID)
-        settings.ADO_DISPLAY_NAME = _prompt(
-            "ADO display name",
-            settings.ADO_DISPLAY_NAME,
+        settings.AZDO_USER_ID = _prompt("AzDO user ID (GUID)", settings.AZDO_USER_ID)
+        settings.AZDO_DISPLAY_NAME = _prompt(
+            "AzDO display name",
+            settings.AZDO_DISPLAY_NAME,
         )
     except Exception as e:
         print("✗")
         print(f"\n  ERROR: {e}")
         print("  You can enter the values manually below.")
-        settings.ADO_USER_ID = _prompt("ADO user ID (GUID)", settings.ADO_USER_ID)
-        settings.ADO_DISPLAY_NAME = _prompt(
-            "ADO display name",
-            settings.ADO_DISPLAY_NAME,
+        settings.AZDO_USER_ID = _prompt("AzDO user ID (GUID)", settings.AZDO_USER_ID)
+        settings.AZDO_DISPLAY_NAME = _prompt(
+            "AzDO display name",
+            settings.AZDO_DISPLAY_NAME,
         )
 
     # --- Callback URL ---

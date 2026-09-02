@@ -144,16 +144,18 @@ class TestClientConfig:
         settings = ClientSettings(
             SERVER_URL="http://localhost:8000",
             CALLBACK_URL="http://localhost:9000/notify",
-            ADO_USER_ID="user-123",
-            ADO_DISPLAY_NAME="Alice",
+            AZDO_USER_ID="user-123",
+            AZDO_DISPLAY_NAME="Dale",
         )
         assert settings.is_fully_configured() is True
+        assert settings.ADO_USER_ID == "user-123"
+        assert settings.ADO_DISPLAY_NAME == "Dale"
 
         incomplete = ClientSettings(
             SERVER_URL="",
             CALLBACK_URL="",
-            ADO_USER_ID="",
-            ADO_DISPLAY_NAME="",
+            AZDO_USER_ID="",
+            AZDO_DISPLAY_NAME="",
         )
         assert incomplete.is_fully_configured() is False
 
@@ -162,9 +164,9 @@ class TestClientConfig:
         settings = ClientSettings(
             SERVER_URL="http://srv:8000",
             CALLBACK_URL="http://host:9000/notify",
-            ADO_USER_ID="u1",
-            ADO_DISPLAY_NAME="Bob",
-            CLIENT_NAME="BobPC",
+            AZDO_USER_ID="u1",
+            AZDO_DISPLAY_NAME="Taiye",
+            CLIENT_NAME="TaiyePC",
             LOG_FILE="C:\\logs\\hermes.log",
         )
         written_path = settings.write_env_file(target)
@@ -172,7 +174,7 @@ class TestClientConfig:
         assert target.exists()
         content = target.read_text(encoding="utf-8")
         assert "SERVER_URL=http://srv:8000" in content
-        assert "ADO_USER_ID=u1" in content
-        assert "ADO_DISPLAY_NAME=Bob" in content
+        assert "AZDO_USER_ID=u1" in content
+        assert "AZDO_DISPLAY_NAME=Taiye" in content
         assert "LOG_FILE=C:\\logs\\hermes.log" in content
 

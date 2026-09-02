@@ -38,9 +38,9 @@ class TestRegisterWithServer:
         settings = ClientSettings(
             SERVER_URL="http://srv:8000",
             CALLBACK_URL="http://client:9000/notify",
-            ADO_USER_ID="u1",
-            ADO_DISPLAY_NAME="Alice",
-            CLIENT_NAME="AlicePC",
+            AZDO_USER_ID="u1",
+            AZDO_DISPLAY_NAME="Dale",
+            CLIENT_NAME="DalePC",
         )
         mock_resp = MagicMock()
         mock_resp.raise_for_status = MagicMock()
@@ -56,9 +56,9 @@ class TestRegisterWithServer:
         settings = ClientSettings(
             SERVER_URL="http://srv:8000",
             CALLBACK_URL="http://client:9000/notify",
-            ADO_USER_ID="u1",
-            ADO_DISPLAY_NAME="Alice",
-            CLIENT_NAME="AlicePC",
+            AZDO_USER_ID="u1",
+            AZDO_DISPLAY_NAME="Dale",
+            CLIENT_NAME="DalePC",
         )
         with (
             patch("httpx.post", side_effect=Exception("Connection refused")),
@@ -96,9 +96,9 @@ class TestStartupNotification:
         settings = ClientSettings(
             SERVER_URL="http://srv:8000",
             CALLBACK_URL="http://host:9000/notify",
-            ADO_USER_ID="u1",
-            ADO_DISPLAY_NAME="Alice",
-            CLIENT_NAME="AlicePC",
+            AZDO_USER_ID="u1",
+            AZDO_DISPLAY_NAME="Dale",
+            CLIENT_NAME="DalePC",
         )
 
         with (
@@ -144,9 +144,9 @@ class TestStartupNotification:
         settings = ClientSettings(
             SERVER_URL="http://srv:8000",
             CALLBACK_URL="http://host:9000/notify",
-            ADO_USER_ID="u1",
-            ADO_DISPLAY_NAME="Alice",
-            CLIENT_NAME="AlicePC",
+            AZDO_USER_ID="u1",
+            AZDO_DISPLAY_NAME="Dale",
+            CLIENT_NAME="DalePC",
             LOG_FILE=log_file,
         )
 

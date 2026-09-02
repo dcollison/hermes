@@ -55,15 +55,16 @@ class TestConstructors:
         from hermes_server.database import make_client
 
         c = make_client(
-            "Alice's PC",
+            "Dale's PC",
             "http://host/notify",
             "uid-1",
-            "Alice Smith",
+            "Dale",
             ["pr"],
         )
-        assert c["name"] == "Alice's PC"
+        assert c["name"] == "Dale's PC"
+        assert c["azdo_user_id"] == "uid-1"
         assert c["ado_user_id"] == "uid-1"
-        assert c["display_name"] == "Alice Smith"
+        assert c["display_name"] == "Dale"
         assert c["subscriptions"] == ["pr"]
         assert c["active"] is True
         assert c["last_seen"] is None
@@ -96,7 +97,7 @@ class TestConstructors:
 
 
 class TestClientCRUD:
-    def _make(self, name="Alice", uid="u1", url="http://host/notify"):
+    def _make(self, name="Dale", uid="u1", url="http://host/notify"):
         return db_module.make_client(name, url, uid, name, ["pr", "workitem"])
 
     async def test_save_and_retrieve_client(self, db):
@@ -104,11 +105,11 @@ class TestClientCRUD:
         await db.save_client(client)
         fetched = await db.get_client(client["id"])
         assert fetched["id"] == client["id"]
-        assert fetched["name"] == "Alice"
+        assert fetched["name"] == "Dale"
 
     async def test_get_all_clients_returns_all(self, db):
-        c1 = self._make("Alice", "u1", "http://a/notify")
-        c2 = self._make("Bob", "u2", "http://b/notify")
+        c1 = self._make("Dale", "u1", "http://a/notify")
+        c2 = self._make("Taiye", "u2", "http://b/notify")
         await db.save_client(c1)
         await db.save_client(c2)
         clients = await db.get_all_clients()
@@ -133,10 +134,10 @@ class TestClientCRUD:
     async def test_save_client_updates_existing(self, db):
         client = self._make()
         await db.save_client(client)
-        client["name"] = "Alice Updated"
+        client["name"] = "Dale Updated"
         await db.save_client(client)
         fetched = await db.get_client(client["id"])
-        assert fetched["name"] == "Alice Updated"
+        assert fetched["name"] == "Dale Updated"
         all_clients = await db.get_all_clients()
         assert len([c for c in all_clients if c["id"] == client["id"]]) == 1
 

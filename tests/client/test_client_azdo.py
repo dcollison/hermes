@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from hermes_client.ado import _auth_headers, resolve_callback_url, resolve_identity
+from hermes_client.azdo import _auth_headers, resolve_callback_url, resolve_identity
 
 
 class TestAuthHeaders:
@@ -45,7 +45,7 @@ class TestResolveIdentity:
             json_body={
                 "authenticatedUser": {
                     "id": "abc-123",
-                    "providerDisplayName": "Alice Smith",
+                    "providerDisplayName": "Dale",
                 },
             },
         )
@@ -54,25 +54,25 @@ class TestResolveIdentity:
             result = resolve_identity("http://ado/DefaultCollection", "my-pat")
 
         assert result["user_id"] == "abc-123"
-        assert result["display_name"] == "Alice Smith"
+        assert result["display_name"] == "Dale"
 
     def test_falls_back_to_customDisplayName(self):
         resp = self._mock_response(
             json_body={
                 "authenticatedUser": {
                     "id": "abc-123",
-                    "customDisplayName": "Alice (Custom)",
+                    "customDisplayName": "Dale (Custom)",
                 },
             },
         )
         with patch("httpx.get", return_value=resp):
             result = resolve_identity("http://ado/DefaultCollection", "my-pat")
-        assert result["display_name"] == "Alice (Custom)"
+        assert result["display_name"] == "Dale (Custom)"
 
     def test_url_has_trailing_slash_stripped(self):
         resp = self._mock_response(
             json_body={
-                "authenticatedUser": {"id": "abc-123", "providerDisplayName": "Alice"},
+                "authenticatedUser": {"id": "abc-123", "providerDisplayName": "Dale"},
             },
         )
         with patch("httpx.get", return_value=resp) as mock_get:
@@ -95,7 +95,7 @@ class TestResolveIdentity:
     def test_uses_correct_api_endpoint(self):
         resp = self._mock_response(
             json_body={
-                "authenticatedUser": {"id": "u1", "providerDisplayName": "Alice"},
+                "authenticatedUser": {"id": "u1", "providerDisplayName": "Dale"},
             },
         )
         with patch("httpx.get", return_value=resp) as mock_get:

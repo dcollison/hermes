@@ -112,7 +112,7 @@ def _get_icon_filename(status_image_key: str | None) -> str:
 
 
 def _clean_url(url: str) -> str:
-    """Sanitize a notification click URL by unescaping HTML entities and canonicalizing ADO URLs.
+    """Sanitize a notification click URL by unescaping HTML entities and canonicalizing AzDO URLs.
 
     :param url: Raw URL string.
     :returns: Cleaned URL string.

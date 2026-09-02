@@ -50,34 +50,34 @@ def tmp_data_dir(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Canonical ADO identity dicts
+# Canonical AzDO identity dicts
 # ---------------------------------------------------------------------------
 
 
 @pytest.fixture
-def alice():
+def dale():
     return {
-        "id": "alice-id-001",
-        "displayName": "Alice Smith",
-        "uniqueName": "alice@corp.com",
+        "id": "dale-id-001",
+        "displayName": "Dale",
+        "uniqueName": "dale@corp.com",
     }
 
 
 @pytest.fixture
-def bob():
+def taiye():
     return {
-        "id": "bob-id-002",
-        "displayName": "Bob Jones",
-        "uniqueName": "bob@corp.com",
+        "id": "taiye-id-002",
+        "displayName": "Taiye",
+        "uniqueName": "taiye@corp.com",
     }
 
 
 @pytest.fixture
-def carol():
+def katherine():
     return {
-        "id": "carol-id-003",
-        "displayName": "Carol White",
-        "uniqueName": "carol@corp.com",
+        "id": "katherine-id-003",
+        "displayName": "Katherine",
+        "uniqueName": "katherine@corp.com",
     }
 
 
@@ -87,13 +87,14 @@ def carol():
 
 
 @pytest.fixture
-def client_record(alice):
+def client_record(dale):
     return {
         "id": "client-uuid-1",
-        "name": "Alice's PC",
+        "name": "Dale's PC",
         "callback_url": "http://192.168.1.10:9000/notify",
-        "ado_user_id": alice["id"],
-        "display_name": alice["displayName"],
+        "azdo_user_id": dale["id"],
+        "ado_user_id": dale["id"],
+        "display_name": dale["displayName"],
         "subscriptions": ["pr", "workitem", "pipeline", "manual"],
         "active": True,
         "registered_at": "2026-01-01T00:00:00+00:00",
@@ -110,7 +111,7 @@ def client_record(alice):
 def no_avatar():
     """Patch get_user_avatar_b64 to return None — no network needed."""
     with patch(
-        "server.ado_client.get_user_avatar_b64",
+        "hermes_server.azdo_client.get_user_avatar_b64",
         new=AsyncMock(return_value=None),
     ):
         yield

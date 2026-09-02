@@ -26,12 +26,13 @@ def _verify_secret(body: bytes, signature: str | None) -> bool:
     :param signature: Value of the X-Hub-Signature header.
     :returns: True if signature matches or secret is unconfigured; False otherwise.
     """
-    if not settings.ADO_WEBHOOK_SECRET:
+    secret = settings.AZDO_WEBHOOK_SECRET or settings.ADO_WEBHOOK_SECRET
+    if not secret:
         return True  # No secret configured - accept all
     if not signature:
         return False
     expected = hmac.new(
-        settings.ADO_WEBHOOK_SECRET.encode(),
+        secret.encode(),
         body,
         hashlib.sha1,
     ).hexdigest()
@@ -71,6 +72,7 @@ async def _log_webhook(payload: dict, event_type: str) -> None:
     await asyncio.to_thread(_append_to_jsonl, entry)
 
 
+@router.post("/azdo")
 @router.post("/ado")
 async def receive_webhook(
     request: Request,
@@ -78,7 +80,7 @@ async def receive_webhook(
 ) -> dict[str, str]:
     """Receive Azure DevOps webhook events.
 
-    Configure your ADO service hook to POST to: {SERVER_URL}/webhooks/ado
+    Configure your AzDO service hook to POST to: {SERVER_URL}/webhooks/azdo
 
     :param request: FastAPI Request instance.
     :param x_hub_signature: Optional X-Hub-Signature header for validation.
@@ -97,18 +99,18 @@ async def receive_webhook(
     if not event_type:
         raise HTTPException(status_code=400, detail="Missing eventType")
 
-    logger.info(f"Received ADO webhook: {event_type}")
+    logger.info(f"Received AzDO webhook: {event_type}")
 
     await _log_webhook(payload, event_type)
 
-    # Format and dispatch in the background so ADO gets a fast 200 response
+    # Format and dispatch in the background so AzDO gets a fast 200 response
     asyncio.create_task(_process(event_type, payload))
 
     return {"status": "accepted", "eventType": event_type}
 
 
 async def _process(event_type: str, payload: dict) -> None:
-    """Format and dispatch an ADO webhook notification in the background.
+    """Format and dispatch an AzDO webhook notification in the background.
 
     :param event_type: Azure DevOps event type string.
     :param payload: Raw webhook payload dictionary.

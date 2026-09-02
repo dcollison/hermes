@@ -12,8 +12,8 @@ This document serves as the guide for AI coding assistants working in the Hermes
 
 1. **`hermes_server`** (FastAPI):
    - Runs on a centralized build/infrastructure server (default port `8000`).
-   - Endpoint `/webhooks/ado` receives Service Hook payloads from Azure DevOps.
-   - Evaluates client subscriptions and team/group mentions (via `ado_client.py` and `dispatcher.py`).
+   - Endpoint `/webhooks/azdo` (or legacy `/webhooks/ado`) receives Service Hook payloads from Azure DevOps.
+   - Evaluates client subscriptions and team/group mentions (via `azdo_client.py` and `dispatcher.py`).
    - Persists client registrations to `data/clients.json` and delivery logs to `data/notifications.log`.
    - Includes webhook event simulator (`hermes-server simulate`).
 
@@ -64,7 +64,7 @@ This document serves as the guide for AI coding assistants working in the Hermes
 - **Service Hooks Version**: 1.0 (5.1-preview).
 - **Pull Requests**:
   - **PR Merge Attempted (`git.pullrequest.merged`)**: Must return `None` (suppress background branch merge attempt noise).
-  - **PR Completed (`git.pullrequest.updated` with `status: "completed"`)**: In ADO 1.0, completion events arrive as update events. These are converted to `git.pullrequest.completed` with heading `"PR Completed"`, notifying both author and reviewers.
+  - **PR Completed (`git.pullrequest.updated` with `status: "completed"`)**: In AzDO 1.0, completion events arrive as update events. These are converted to `git.pullrequest.completed` with heading `"PR Completed"`, notifying both author and reviewers.
   - **PR Created (`git.pullrequest.created`)**: Notifies assigned reviewers.
   - **PR Updated (`git.pullrequest.updated` with `status: "active"`)**: Notifies reviewers.
   - **PR Comments (`ms.vss-code.git-pullrequest-comment-event`)**: Notifies thread participants and reviewers, excluding commenter.
@@ -72,7 +72,7 @@ This document serves as the guide for AI coding assistants working in the Hermes
   - Created, updated, commented, resolved, closed, done.
   - REST URLs (`/_apis/wit/workItems/123`) must be converted to browser edit URLs (`/_workitems/edit/123`), stripping revision suffixes.
 - **URL Entity Sanitization**:
-  - ADO webhooks include HTML-escaped URLs with entities like `&amp;` in query strings.
+  - AzDO webhooks include HTML-escaped URLs with entities like `&amp;` in query strings.
   - All URLs extracted from HTML/Markdown must pass through `html.unescape()` and `.replace("&amp;", "&")`.
 
 ---

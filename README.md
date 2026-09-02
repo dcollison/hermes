@@ -38,7 +38,7 @@ Hermes stores all state in the `data/` directory:
 2. **Configure**
    ```bash
    cp .env.example .env.hermes-server
-   # Edit .env.hermes-server with your ADO server URL and PAT
+   # Edit .env.hermes-server with your AzDO server URL and PAT
    ```
 
 3. **Run**
@@ -49,9 +49,9 @@ Hermes stores all state in the `data/` directory:
 
 4. **Register Azure DevOps webhooks** (do this once per event type)
 
-   In ADO: Project Settings → Service Hooks → Create Subscription → Web Hooks
+   In AzDO: Project Settings → Service Hooks → Create Subscription → Web Hooks
 
-   Set the URL to: `http://your-build-server:8000/webhooks/ado`
+   Set the URL to: `http://your-build-server:8000/webhooks/azdo`
 
    **Recommended events to subscribe:**
 
@@ -68,9 +68,9 @@ Hermes stores all state in the `data/` directory:
    | Release    | Release deployment completed |
    | Release    | Release abandoned            |
 
-   > All use **API version 5.1-preview** in ADO Server.
+   > All use **API version 5.1-preview** in AzDO Server.
 
-   If you want webhook validation, set a shared secret in ADO and add `ADO_WEBHOOK_SECRET=your_secret` to `.env.hermes-server`.
+   If you want webhook validation, set a shared secret in AzDO and add `AZDO_WEBHOOK_SECRET=your_secret` to `.env.hermes-server`.
 
 ---
 
@@ -149,7 +149,7 @@ curl -X POST http://your-server:8000/notifications/send \
   -d '{
     "heading": "Deployment Notice",
     "body": "Prod deployment starts in 10 minutes. Please save your work.",
-    "url": "http://your-ado/release/123"
+    "url": "http://your-azdo/release/123"
   }'
 
 # Target specific clients by name
@@ -158,7 +158,7 @@ curl -X POST http://your-server:8000/notifications/send \
   -d '{
     "heading": "Code Review Needed",
     "body": "PR #42 needs your review.",
-    "filter_name_contains": "Alice"
+    "filter_name_contains": "Dale"
   }'
 
 # Target a specific project team
@@ -177,7 +177,8 @@ curl -X POST http://your-server:8000/notifications/send \
 
 | Endpoint                      | Method | Description                  |
 |-------------------------------|--------|------------------------------|
-| `/webhooks/ado`               | POST   | ADO webhook receiver         |
+| `/webhooks/azdo`              | POST   | AzDO webhook receiver        |
+| `/webhooks/ado`               | POST   | Legacy webhook receiver alias|
 | `/clients/register`           | POST   | Register a client            |
 | `/clients/`                   | GET    | List all clients             |
 | `/clients/{id}`               | DELETE | Unregister a client          |

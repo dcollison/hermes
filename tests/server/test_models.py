@@ -19,8 +19,8 @@ def test_notification_payload_serialization():
         body="New PR",
         url="http://ado/pr/1",
         project="Proj",
-        actor="Alice",
-        mentions=Mentions(user_ids=["u-1"], names=["Bob"]),
+        actor="Dale",
+        mentions=Mentions(user_ids=["u-1"], names=["Taiye"]),
         meta={"pr_id": 1},
     )
     d = payload.to_dict()
@@ -30,7 +30,7 @@ def test_notification_payload_serialization():
 
     reconstructed = NotificationPayload.from_dict(d)
     assert reconstructed.heading == "PR Created"
-    assert reconstructed.mentions.names == ["Bob"]
+    assert reconstructed.mentions.names == ["Taiye"]
 
 
 def test_client_record_model():
@@ -38,12 +38,25 @@ def test_client_record_model():
         id="c-123",
         name="My PC",
         callback_url="http://127.0.0.1:9000/notify",
-        ado_user_id="u-1",
-        display_name="Alice",
+        azdo_user_id="u-1",
+        display_name="Dale",
         registered_at="2026-01-01T00:00:00Z",
     )
     assert client.active is True
     assert client.subscriptions == []
+    assert client.azdo_user_id == "u-1"
+    assert client.ado_user_id == "u-1"
+
+    client_legacy = ClientRecord(
+        id="c-123",
+        name="My PC",
+        callback_url="http://127.0.0.1:9000/notify",
+        ado_user_id="u-1",
+        display_name="Dale",
+        registered_at="2026-01-01T00:00:00Z",
+    )
+    assert client_legacy.azdo_user_id == "u-1"
+    assert client_legacy.ado_user_id == "u-1"
 
 
 def test_delivery_log_entry_model():

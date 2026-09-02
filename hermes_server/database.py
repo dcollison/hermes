@@ -262,27 +262,31 @@ async def get_logs(
 def make_client(
     name: str,
     callback_url: str,
-    ado_user_id: str,
-    display_name: str,
-    subscriptions: list[str],
+    azdo_user_id: str = "",
+    display_name: str = "",
+    subscriptions: list[str] | None = None,
+    ado_user_id: str | None = None,
 ) -> dict:
     """Construct a new client record dictionary.
 
     :param name: Human-readable client label.
     :param callback_url: Webhook callback URL on the client.
-    :param ado_user_id: Azure DevOps identity GUID.
+    :param azdo_user_id: Azure DevOps identity GUID.
     :param display_name: Azure DevOps user display name.
     :param subscriptions: List of subscribed event categories.
+    :param ado_user_id: Backward-compatible alias for azdo_user_id.
     :returns: Initialized client dictionary.
     """
     now = datetime.now(UTC).isoformat()
+    uid = azdo_user_id or ado_user_id or ""
     return {
         "id": str(uuid.uuid4()),
         "name": name,
         "callback_url": callback_url,
-        "ado_user_id": ado_user_id,
+        "azdo_user_id": uid,
+        "ado_user_id": uid,
         "display_name": display_name,
-        "subscriptions": subscriptions,
+        "subscriptions": subscriptions or [],
         "active": True,
         "registered_at": now,
         "last_seen": None,

@@ -4,7 +4,7 @@ import json
 import urllib.request
 from urllib.error import URLError
 
-DEFAULT_URL = "http://localhost:8000/webhooks/ado"
+DEFAULT_URL = "http://localhost:8000/webhooks/azdo"
 DEFAULT_USER = "simulate-user"
 
 EVENTS = [
@@ -47,7 +47,7 @@ def _send(payload: dict, url: str) -> None:
 
 
 def generate_payload(event: str, target_user: str) -> dict:
-    """Generate a fake ADO 1.0 webhook payload for a given event type.
+    """Generate a fake AzDO 1.0 webhook payload for a given event type.
 
     :param event: The event simulator identifier (e.g., 'pr-created').
     :param target_user: User identity ID or display name to target.
@@ -234,8 +234,8 @@ def generate_payload(event: str, target_user: str) -> dict:
 
 
 def main() -> None:
-    """Main entrypoint for the standalone ADO webhook simulation script."""
-    parser = argparse.ArgumentParser(description="Simulate ADO webhooks for Hermes")
+    """Main entrypoint for the standalone AzDO webhook simulation script."""
+    parser = argparse.ArgumentParser(description="Simulate AzDO webhooks for Hermes")
     parser.add_argument(
         "event",
         choices=EVENTS + ["all"],

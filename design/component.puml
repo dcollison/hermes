@@ -5,24 +5,24 @@ title Component diagram for Hermes Server
 
 Container_Ext(client, "Hermes Client", "Python", "Developer machine agent")
 Container_Ext(cli, "Hermes Notify CLI", "Python CLI", "Manual notification sender")
-System_Ext(ado, "Azure DevOps", "External ADO API")
+System_Ext(azdo, "Azure DevOps", "External AzDO API")
 ContainerDb_Ext(db, "File Storage", "File System", "data/ directory")
 
 Container_Boundary(server, "Hermes Server") {
-    Component(webhooks_api, "Webhooks API", "FastAPI Router", "Receives and validates ADO webhooks")
+    Component(webhooks_api, "Webhooks API", "FastAPI Router", "Receives and validates AzDO webhooks")
     Component(clients_api, "Clients API", "FastAPI Router", "Handles client registration/unregistration")
     Component(notifications_api, "Notifications API", "FastAPI Router", "Handles manual notifications and delivery logs")
     Component(dispatcher, "Dispatcher", "Python Module", "Determines relevant clients based on subscriptions and mention/group matching")
-    Component(formatter, "Formatter", "Python Module", "Formats raw ADO JSON payloads into Hermes Notification objects")
-    Component(ado_client, "ADO Client", "Python Module", "Fetches avatars, groups, and PR thread participants")
+    Component(formatter, "Formatter", "Python Module", "Formats raw AzDO JSON payloads into Hermes Notification objects")
+    Component(azdo_client, "AzDO Client", "Python Module", "Fetches avatars, groups, and PR thread participants")
     Component(database, "Database", "Python Module", "Manages async locking and file I/O for state persistence and NDJSON logs")
 }
 
 Rel(webhooks_api, formatter, "Formats raw event using")
 Rel(webhooks_api, dispatcher, "Dispatches formatted notification via")
-Rel(formatter, ado_client, "Fetches avatars and PR thread participants via")
-Rel(dispatcher, ado_client, "Resolves user group memberships via")
-Rel(ado_client, ado, "Queries ADO REST API endpoints", "HTTP GET")
+Rel(formatter, azdo_client, "Fetches avatars and PR thread participants via")
+Rel(dispatcher, azdo_client, "Resolves user group memberships via")
+Rel(azdo_client, azdo, "Queries AzDO REST API endpoints", "HTTP GET")
 Rel(clients_api, database, "Saves/updates client records in")
 Rel(notifications_api, database, "Reads/writes delivery logs in")
 Rel(notifications_api, client, "Pushes manual notifications to", "HTTP POST")

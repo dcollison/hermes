@@ -65,14 +65,16 @@ async def server_status() -> dict:
     """
     stats = await get_system_stats()
     uptime = time.time() - _start_time
+    is_azdo_configured = bool(settings.AZDO_ORGANIZATION_URL and settings.AZDO_PAT)
     return {
         "status": "ok",
         "service": "Hermes",
         "version": __version__,
         "uptime_seconds": round(uptime, 2),
         "clients": stats,
-        "ado_configured": bool(settings.ADO_ORGANIZATION_URL and settings.ADO_PAT),
-        "webhook_secret_enabled": bool(settings.ADO_WEBHOOK_SECRET),
+        "azdo_configured": is_azdo_configured,
+        "ado_configured": is_azdo_configured,
+        "webhook_secret_enabled": bool(settings.AZDO_WEBHOOK_SECRET),
     }
 
 

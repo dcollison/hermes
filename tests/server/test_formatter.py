@@ -30,22 +30,22 @@ class TestMentions:
         assert result == {"user_ids": [], "names": []}
 
     def test_single_identity(self):
-        result = self._mentions({"id": "u1", "displayName": "Alice"})
+        result = self._mentions({"id": "u1", "displayName": "Dale"})
         assert result["user_ids"] == ["u1"]
-        assert result["names"] == ["Alice"]
+        assert result["names"] == ["Dale"]
 
     def test_actor_excluded(self):
-        result = self._mentions({"id": "u1", "displayName": "Alice"}, actor_id="u1")
+        result = self._mentions({"id": "u1", "displayName": "Dale"}, actor_id="u1")
         assert result["user_ids"] == []
         assert result["names"] == []
 
     def test_deduplication(self):
-        ident = {"id": "u1", "displayName": "Alice"}
+        ident = {"id": "u1", "displayName": "Dale"}
         result = self._mentions(ident, ident)
         assert result["user_ids"] == ["u1"]
 
     def test_none_identities_skipped(self):
-        result = self._mentions(None, {"id": "u1", "displayName": "Alice"}, None)
+        result = self._mentions(None, {"id": "u1", "displayName": "Dale"}, None)
         assert result["user_ids"] == ["u1"]
 
     def test_actor_excluded_others_kept(self):
@@ -64,46 +64,46 @@ class TestMentions:
 
     def test_uses_uniqueName_as_fallback_id(self):
         result = self._mentions(
-            {"uniqueName": "alice@corp.com", "displayName": "Alice"},
+            {"uniqueName": "dale@corp.com", "displayName": "Dale"},
         )
-        assert result["user_ids"] == ["alice@corp.com"]
+        assert result["user_ids"] == ["dale@corp.com"]
 
     def test_string_identities_parsed_as_names(self):
-        result = self._mentions("Backend Team", {"id": "u1", "displayName": "Alice"})
+        result = self._mentions("Backend Team", {"id": "u1", "displayName": "Dale"})
         assert "Backend Team" in result["names"]
-        assert "Alice" in result["names"]
+        assert "Dale" in result["names"]
         assert result["user_ids"] == ["u1"]
 
     def test_user_not_mentioned_if_name_in_message(self):
         result = self._mentions(
-            {"id": "u1", "displayName": "Alice Smith"},
-            message="Bug #5 created by Alice Smith.",
+            {"id": "u1", "displayName": "Dale"},
+            message="Bug #5 created by Dale.",
         )
         assert result == {"user_ids": [], "names": []}
 
     def test_user_mentioned_if_name_not_in_message(self):
         result = self._mentions(
-            {"id": "u1", "displayName": "Alice Smith"},
-            message="Bug #5 created by Bob Jones.",
+            {"id": "u1", "displayName": "Alex"},
+            message="Bug #5 created by Euan.",
         )
         assert result["user_ids"] == ["u1"]
-        assert result["names"] == ["Alice Smith"]
+        assert result["names"] == ["Alex"]
 
     def test_string_identity_not_mentioned_if_in_message(self):
         result = self._mentions(
-            "Alice Smith",
-            message="Alice Smith commented on PR #42",
+            "Stephen",
+            message="Stephen commented on PR #42",
         )
         assert result == {"user_ids": [], "names": []}
 
     def test_multiple_identities_message_filtering(self):
         result = self._mentions(
-            {"id": "u1", "displayName": "Alice"},
-            {"id": "u2", "displayName": "Bob"},
-            message="PR created by Alice",
+            {"id": "u1", "displayName": "Dale"},
+            {"id": "u2", "displayName": "Taiye"},
+            message="PR created by Dale",
         )
         assert result["user_ids"] == ["u2"]
-        assert result["names"] == ["Bob"]
+        assert result["names"] == ["Taiye"]
 
 
 # ---------------------------------------------------------------------------
@@ -121,8 +121,8 @@ class TestFormatPR:
             "sourceRefName": "refs/heads/feature/x",
             "targetRefName": "refs/heads/main",
             "url": "http://ado/pr/42",
-            "createdBy": {"id": "author-id", "displayName": "Alice"},
-            "reviewers": [{"id": "reviewer-id", "displayName": "Bob"}],
+            "createdBy": {"id": "author-id", "displayName": "Alex"},
+            "reviewers": [{"id": "reviewer-id", "displayName": "Hamzaan"}],
         }
         if resource_overrides:
             base_resource.update(resource_overrides)
@@ -171,15 +171,15 @@ class TestFormatPR:
             "git.pullrequest.updated",
             {"status": "completed"},
         )
-        payload["message"] = {"text": "Bob approved pull request 42"}
+        payload["message"] = {"text": "Hamzaan approved pull request 42"}
 
         notif = await format_webhook("git.pullrequest.updated", payload)
         assert notif is not None
         assert notif["heading"] == "PR Approved & Completed"
         assert notif["status_image"] == "pr completed"
-        assert notif["actor"] == "Bob"
+        assert notif["actor"] == "Hamzaan"
         assert notif["actor_id"] == "reviewer-id"
-        # Bob approved, so author Alice is notified, Bob is excluded
+        # Hamzaan approved, so author Alex is notified, Hamzaan is excluded
         assert "author-id" in notif["mentions"]["user_ids"]
         assert "reviewer-id" not in notif["mentions"]["user_ids"]
 
@@ -190,13 +190,13 @@ class TestFormatPR:
             "git.pullrequest.updated",
             {"status": "active"},
         )
-        payload["message"] = {"text": "Bob approved pull request 42"}
+        payload["message"] = {"text": "Hamzaan approved pull request 42"}
 
         notif = await format_webhook("git.pullrequest.updated", payload)
         assert notif is not None
         assert notif["heading"] == "PR Approved"
         assert notif["status_image"] == "pr updated"
-        assert notif["actor"] == "Bob"
+        assert notif["actor"] == "Hamzaan"
         assert notif["actor_id"] == "reviewer-id"
         assert "author-id" in notif["mentions"]["user_ids"]
         assert "reviewer-id" not in notif["mentions"]["user_ids"]
@@ -208,15 +208,15 @@ class TestFormatPR:
             "git.pullrequest.updated",
             {
                 "status": "completed",
-                "closedBy": {"id": "closer-id", "displayName": "Charlie"},
+                "closedBy": {"id": "closer-id", "displayName": "Liam"},
             },
         )
-        payload["message"] = {"text": "Charlie marked the pull request as completed"}
+        payload["message"] = {"text": "Liam marked the pull request as completed"}
 
         notif = await format_webhook("git.pullrequest.updated", payload)
         assert notif is not None
         assert notif["heading"] == "PR Completed"
-        assert notif["actor"] == "Charlie"
+        assert notif["actor"] == "Liam"
         assert notif["actor_id"] == "closer-id"
 
     async def test_pr_merged_attempt_event_returns_none(self):
@@ -231,7 +231,7 @@ class TestFormatPR:
     async def test_pr_comment_excludes_commenter(self):
         # 1.0 comment payload structure
         resource = {
-            "author": {"id": "commenter-id", "displayName": "Bob"},
+            "author": {"id": "commenter-id", "displayName": "Taiye"},
             "content": "LGTM",
             "_links": {
                 "threads": {
@@ -257,7 +257,7 @@ class TestFormatPR:
 
     async def test_pr_comment_notifies_thread_participants_excluding_commenter(self):
         resource = {
-            "author": {"id": "commenter-id", "displayName": "Bob"},
+            "author": {"id": "commenter-id", "displayName": "Taiye"},
             "content": "LGTM",
             "_links": {
                 "threads": {
@@ -266,9 +266,9 @@ class TestFormatPR:
             },
         }
         thread_authors = [
-            {"id": "author-1", "displayName": "Alice"},
-            {"id": "author-2", "displayName": "Charlie"},
-            {"id": "commenter-id", "displayName": "Bob"},
+            {"id": "author-1", "displayName": "Dale"},
+            {"id": "author-2", "displayName": "Liam"},
+            {"id": "commenter-id", "displayName": "Taiye"},
         ]
         with patch(
             "hermes_server.formatter.get_thread_participants",
@@ -331,9 +331,9 @@ class TestFormatWorkItem:
             "System.WorkItemType": "Task",
             "System.Title": "Fix the bug",
             "System.State": "Active",
-            "System.AssignedTo": {"id": "assignee-id", "displayName": "Carol"},
-            "System.CreatedBy": {"id": "creator-id", "displayName": "Alice"},
-            "System.ChangedBy": {"id": "changer-id", "displayName": "Dave"},
+            "System.AssignedTo": {"id": "assignee-id", "displayName": "Katherine"},
+            "System.CreatedBy": {"id": "creator-id", "displayName": "Dale"},
+            "System.ChangedBy": {"id": "changer-id", "displayName": "Simon"},
         }
         if fields_override:
             fields.update(fields_override)
@@ -346,7 +346,7 @@ class TestFormatWorkItem:
             resource["fields"] = {
                 "System.State": {"newValue": fields.get("System.State")},
             }
-            resource["revisedBy"] = {"id": "changer-id", "displayName": "Dave"}
+            resource["revisedBy"] = {"id": "changer-id", "displayName": "Simon"}
         else:
             resource["fields"] = fields.copy()
 
@@ -405,20 +405,19 @@ class TestFormatWorkItem:
                     "System.WorkItemType": "Bug",
                     "System.Title": "Crash on login",
                     "System.State": "Active",
-                    "System.AssignedTo": "Carol Smith <DOMAIN\\Carol.Smith>",
-                    "System.ChangedBy": "Dale Collison <DOMAIN\\Dale.Collison>",
+                    "System.AssignedTo": "Vinod <DOMAIN\\Vinod>",
+                    "System.ChangedBy": "Dale <DOMAIN\\Dale>",
                 },
                 "url": "http://ado/_apis/wit/workItems/101",
             },
             "resourceContainers": {"project": {"name": "ProjectX"}},
         }
         notif = await format_webhook("workitem.updated", payload)
-        assert notif["actor"] == "Dale Collison"
-        assert notif["meta"]["assigned_to"] == "Carol Smith"
-        assert "Carol Smith" in notif["mentions"]["names"]
-        assert "DOMAIN\\Carol.Smith" in notif["mentions"]["names"]
-        assert "Carol.Smith" in notif["mentions"]["names"]
-        assert "Dale Collison" not in notif["mentions"]["names"]
+        assert notif["actor"] == "Dale"
+        assert notif["meta"]["assigned_to"] == "Vinod"
+        assert "Vinod" in notif["mentions"]["names"]
+        assert "DOMAIN\\Vinod" in notif["mentions"]["names"]
+        assert "Dale" not in notif["mentions"]["names"]
 
     async def test_workitem_self_edit_string_identity_excludes_self(self):
         from hermes_server.formatter import format_webhook
@@ -430,16 +429,16 @@ class TestFormatWorkItem:
                     "System.WorkItemType": "Task",
                     "System.Title": "Refactor router",
                     "System.State": "Active",
-                    "System.AssignedTo": "Dale Collison <DOMAIN\\Dale.Collison>",
-                    "System.ChangedBy": "Dale Collison <DOMAIN\\Dale.Collison>",
+                    "System.AssignedTo": "Dale <DOMAIN\\Dale>",
+                    "System.ChangedBy": "Dale <DOMAIN\\Dale>",
                 },
                 "url": "http://ado/_apis/wit/workItems/102",
             },
             "resourceContainers": {"project": {"name": "ProjectX"}},
         }
         notif = await format_webhook("workitem.updated", payload)
-        assert notif["actor"] == "Dale Collison"
-        assert notif["meta"]["assigned_to"] == "Dale Collison"
+        assert notif["actor"] == "Dale"
+        assert notif["meta"]["assigned_to"] == "Dale"
         assert notif["mentions"]["names"] == []
         assert notif["mentions"]["user_ids"] == []
 
@@ -448,19 +447,19 @@ class TestParseIdentity:
     def test_composite_domain_account_string(self):
         from hermes_server.formatter import parse_identity
 
-        res = parse_identity("Dale Collison <DOMAIN\\Dale.Collison>")
-        assert res["displayName"] == "Dale Collison"
-        assert res["uniqueName"] == "DOMAIN\\Dale.Collison"
-        assert res["accountName"] == "Dale.Collison"
+        res = parse_identity("Stephen <DOMAIN\\Stephen>")
+        assert res["displayName"] == "Stephen"
+        assert res["uniqueName"] == "DOMAIN\\Stephen"
+        assert res["accountName"] == "Stephen"
         assert res["id"] is None
 
     def test_composite_email_string(self):
         from hermes_server.formatter import parse_identity
 
-        res = parse_identity("Carol Smith <carol@example.com>")
-        assert res["displayName"] == "Carol Smith"
-        assert res["uniqueName"] == "carol@example.com"
-        assert res["accountName"] == "carol"
+        res = parse_identity("Katherine <katherine@example.com>")
+        assert res["displayName"] == "Katherine"
+        assert res["uniqueName"] == "katherine@example.com"
+        assert res["accountName"] == "katherine"
 
     def test_plain_display_name_string(self):
         from hermes_server.formatter import parse_identity
@@ -473,11 +472,11 @@ class TestParseIdentity:
     def test_identity_dict(self):
         from hermes_server.formatter import parse_identity
 
-        res = parse_identity({"id": "u-123", "displayName": "Alice", "uniqueName": "DOMAIN\\Alice"})
+        res = parse_identity({"id": "u-123", "displayName": "Dale", "uniqueName": "DOMAIN\\Dale"})
         assert res["id"] == "u-123"
-        assert res["displayName"] == "Alice"
-        assert res["uniqueName"] == "DOMAIN\\Alice"
-        assert res["accountName"] == "Alice"
+        assert res["displayName"] == "Dale"
+        assert res["uniqueName"] == "DOMAIN\\Dale"
+        assert res["accountName"] == "Dale"
 
     def test_none_or_empty(self):
         from hermes_server.formatter import parse_identity
@@ -505,7 +504,7 @@ class TestFormatPipeline:
                 "requests": [
                     {
                         "requestedFor": requested_for
-                        or {"id": "user-id", "displayName": "Alice"},
+                        or {"id": "user-id", "displayName": "Dale"},
                     },
                 ],
                 "_links": {"web": {"href": "http://ado/build/1"}},
@@ -539,7 +538,7 @@ class TestFormatPipeline:
     async def test_build_notifies_triggerer(self):
         notif = await self._format_build(
             "succeeded",
-            {"id": "user-id", "displayName": "Alice"},
+            {"id": "user-id", "displayName": "Dale"},
         )
         assert "user-id" in notif["mentions"]["user_ids"]
 
@@ -554,7 +553,7 @@ class TestFormatPipeline:
                     "_links": {"web": {"href": "http://ado/release/1"}},
                 },
                 "deployment": {
-                    "requestedFor": {"id": "deployer-id", "displayName": "Bob"},
+                    "requestedFor": {"id": "deployer-id", "displayName": "David"},
                 },
             },
             "resourceContainers": {"project": {"name": "MyProject"}},
@@ -574,7 +573,7 @@ class TestFormatPipeline:
                 "environment": {"name": "Production", "status": "failed"},
                 "release": {"name": "Release-1", "_links": {"web": {"href": ""}}},
                 "deployment": {
-                    "requestedFor": {"id": "deployer-id", "displayName": "Bob"},
+                    "requestedFor": {"id": "deployer-id", "displayName": "David"},
                 },
             },
             "resourceContainers": {},
@@ -591,7 +590,7 @@ class TestFormatPipeline:
         payload = {
             "resource": {
                 "name": "Release-2",
-                "modifiedBy": {"id": "user-id", "displayName": "Alice"},
+                "modifiedBy": {"id": "user-id", "displayName": "Tom"},
                 "_links": {"web": {"href": "http://ado/release/2"}},
             },
             "resourceContainers": {},
@@ -606,7 +605,7 @@ class TestFormatPipeline:
             "resource": {
                 "name": "Release-1",
                 "releaseDefinition": {"name": "Main release"},
-                "createdBy": {"id": "user-id", "displayName": "Alice"},
+                "createdBy": {"id": "user-id", "displayName": "Rob"},
                 "_links": {"web": {"href": "http://ado/release/1"}},
             },
             "resourceContainers": {},
@@ -617,20 +616,20 @@ class TestFormatPipeline:
 
 class TestGetThreadParticipants:
     async def test_empty_or_missing_url(self):
-        from hermes_server.ado_client import get_thread_participants
+        from hermes_server.azdo_client import get_thread_participants
 
         assert await get_thread_participants("") == []
         assert await get_thread_participants(None) == []
 
     async def test_successful_fetch(self):
-        from hermes_server.ado_client import get_thread_participants
+        from hermes_server.azdo_client import get_thread_participants
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
         mock_resp.json.return_value = {
             "comments": [
-                {"author": {"id": "u1", "displayName": "Alice"}},
-                {"author": {"id": "u2", "displayName": "Bob"}},
+                {"author": {"id": "u1", "displayName": "Dale"}},
+                {"author": {"id": "u2", "displayName": "Taiye"}},
                 {"content": "no author"},
             ],
         }
@@ -640,7 +639,7 @@ class TestGetThreadParticipants:
         mock_http.get = AsyncMock(return_value=mock_resp)
 
         with (
-            patch("hermes_server.ado_client.settings.ADO_PAT", "pat"),
+            patch("hermes_server.azdo_client.settings.AZDO_PAT", "pat"),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
             authors = await get_thread_participants("http://ado/thread/1")
@@ -650,7 +649,7 @@ class TestGetThreadParticipants:
         assert authors[1]["id"] == "u2"
 
     async def test_http_error_returns_empty_list(self):
-        from hermes_server.ado_client import get_thread_participants
+        from hermes_server.azdo_client import get_thread_participants
 
         mock_http = MagicMock()
         mock_http.__aenter__ = AsyncMock(return_value=mock_http)
@@ -658,7 +657,7 @@ class TestGetThreadParticipants:
         mock_http.get = AsyncMock(side_effect=Exception("network error"))
 
         with (
-            patch("hermes_server.ado_client.settings.ADO_PAT", "pat"),
+            patch("hermes_server.azdo_client.settings.AZDO_PAT", "pat"),
             patch("httpx.AsyncClient", return_value=mock_http),
         ):
             authors = await get_thread_participants("http://ado/thread/1")

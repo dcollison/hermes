@@ -3,7 +3,7 @@ import logging
 
 # Remote
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import AliasChoices, BaseModel, Field
 
 # Local
 from ..database import (
@@ -20,18 +20,29 @@ router = APIRouter()
 
 
 class RegisterRequest(BaseModel):
-    name: str  # Human-readable label, e.g. "Alice's PC"
+    name: str  # Human-readable label, e.g. "Dale's PC"
     callback_url: str  # e.g. http://192.168.1.50:9000/notify
-    ado_user_id: str  # ADO identity ID (GUID) — used for mention matching
-    display_name: str  # ADO display name — used for group name matching
+    azdo_user_id: str = Field(
+        default="",
+        validation_alias=AliasChoices("azdo_user_id", "ado_user_id"),
+    )  # AzDO identity ID (GUID) — used for mention matching
+    display_name: str  # AzDO display name — used for group name matching
     subscriptions: list[str] = ["pr", "workitem", "pipeline", "manual"]
+
+    @property
+    def ado_user_id(self) -> str:
+        return self.azdo_user_id
 
 
 class ClientResponse(BaseModel):
     id: str
     name: str
     callback_url: str
-    ado_user_id: str
+    azdo_user_id: str = Field(
+        default="",
+        validation_alias=AliasChoices("azdo_user_id", "ado_user_id"),
+    )
+    ado_user_id: str = ""
     display_name: str
     subscriptions: list[str]
     active: bool
@@ -43,11 +54,13 @@ def _to_response(client: dict) -> ClientResponse:
     :param client: Client record dictionary.
     :returns: ClientResponse schema instance.
     """
+    uid = client.get("azdo_user_id") or client.get("ado_user_id", "")
     return ClientResponse(
         id=client["id"],
         name=client["name"],
         callback_url=client["callback_url"],
-        ado_user_id=client.get("ado_user_id", ""),
+        azdo_user_id=uid,
+        ado_user_id=uid,
         display_name=client.get("display_name", ""),
         subscriptions=client.get("subscriptions", []),
         active=client.get("active", True),
@@ -65,11 +78,13 @@ async def register_client(body: RegisterRequest) -> ClientResponse:
     :returns: Registered ClientResponse data.
     """
     existing = await get_client_by_callback(body.callback_url)
+    uid = body.azdo_user_id or body.ado_user_id
     if existing:
         existing.update(
             {
                 "name": body.name,
-                "ado_user_id": body.ado_user_id,
+                "azdo_user_id": uid,
+                "ado_user_id": uid,
                 "display_name": body.display_name,
                 "subscriptions": body.subscriptions,
                 "active": True,
@@ -82,7 +97,8 @@ async def register_client(body: RegisterRequest) -> ClientResponse:
     client = make_client(
         name=body.name,
         callback_url=body.callback_url,
-        ado_user_id=body.ado_user_id,
+        azdo_user_id=uid,
+        ado_user_id=uid,
         display_name=body.display_name,
         subscriptions=body.subscriptions,
     )

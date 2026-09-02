@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 # Remote
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 
@@ -132,13 +133,25 @@ class ClientSettings(BaseSettings):
     # Resolved at configure-time and persisted to .env.hermes-client.
     # Left blank so the startup logic knows to prompt/resolve them if missing.
     CALLBACK_URL: str = ""
-    ADO_USER_ID: str = ""
-    ADO_DISPLAY_NAME: str = ""
+    AZDO_USER_ID: str = Field(
+        default="",
+        validation_alias=AliasChoices("AZDO_USER_ID", "ADO_USER_ID"),
+    )
+    AZDO_DISPLAY_NAME: str = Field(
+        default="",
+        validation_alias=AliasChoices("AZDO_DISPLAY_NAME", "ADO_DISPLAY_NAME"),
+    )
 
-    # ADO credentials — used once during `configure` to resolve identity.
+    # AzDO credentials — used once during `configure` to resolve identity.
     # Stored in the env file so `run` can re-resolve on demand if needed.
-    ADO_ORGANIZATION_URL: str = ""
-    ADO_PAT: str = ""
+    AZDO_ORGANIZATION_URL: str = Field(
+        default="",
+        validation_alias=AliasChoices("AZDO_ORGANIZATION_URL", "ADO_ORGANIZATION_URL"),
+    )
+    AZDO_PAT: str = Field(
+        default="",
+        validation_alias=AliasChoices("AZDO_PAT", "ADO_PAT"),
+    )
 
     LOG_FILE: str = ""
 
@@ -149,16 +162,65 @@ class ClientSettings(BaseSettings):
         "env_file_encoding": "utf-8",
     }
 
+    # Backward-compatible property aliases
+    @property
+    def ADO_USER_ID(self) -> str:
+        return self.AZDO_USER_ID
+
+    @ADO_USER_ID.setter
+    def ADO_USER_ID(self, value: str) -> None:
+        self.AZDO_USER_ID = value
+
+    @ADO_USER_ID.deleter
+    def ADO_USER_ID(self) -> None:
+        self.AZDO_USER_ID = ""
+
+    @property
+    def ADO_DISPLAY_NAME(self) -> str:
+        return self.AZDO_DISPLAY_NAME
+
+    @ADO_DISPLAY_NAME.setter
+    def ADO_DISPLAY_NAME(self, value: str) -> None:
+        self.AZDO_DISPLAY_NAME = value
+
+    @ADO_DISPLAY_NAME.deleter
+    def ADO_DISPLAY_NAME(self) -> None:
+        self.AZDO_DISPLAY_NAME = ""
+
+    @property
+    def ADO_ORGANIZATION_URL(self) -> str:
+        return self.AZDO_ORGANIZATION_URL
+
+    @ADO_ORGANIZATION_URL.setter
+    def ADO_ORGANIZATION_URL(self, value: str) -> None:
+        self.AZDO_ORGANIZATION_URL = value
+
+    @ADO_ORGANIZATION_URL.deleter
+    def ADO_ORGANIZATION_URL(self) -> None:
+        self.AZDO_ORGANIZATION_URL = ""
+
+    @property
+    def ADO_PAT(self) -> str:
+        return self.AZDO_PAT
+
+    @ADO_PAT.setter
+    def ADO_PAT(self, value: str) -> None:
+        self.AZDO_PAT = value
+
+    @ADO_PAT.deleter
+    def ADO_PAT(self) -> None:
+        self.AZDO_PAT = ""
+
     def is_fully_configured(self) -> bool:
         """Check whether all required runtime settings are populated.
 
-        :returns: True if SERVER_URL, CALLBACK_URL, ADO_USER_ID, and ADO_DISPLAY_NAME are present.
+        :returns: True if SERVER_URL, CALLBACK_URL, AZDO_USER_ID, and AZDO_DISPLAY_NAME are present.
         """
         return bool(
             self.SERVER_URL
             and self.CALLBACK_URL
-            and self.ADO_USER_ID
-            and self.ADO_DISPLAY_NAME,
+            and self.AZDO_USER_ID
+            and self.AZDO_DISPLAY_NAME,
         )
 
     def write_env_file(self, path: Path | None = None) -> Path:
@@ -183,11 +245,11 @@ class ClientSettings(BaseSettings):
             f"CALLBACK_URL={self.CALLBACK_URL}",
             f"LOG_FILE={self.LOG_FILE}",
             "",
-            "# ADO identity (resolved from PAT by hermes-client configure)",
-            f"ADO_ORGANIZATION_URL={self.ADO_ORGANIZATION_URL}",
-            f"ADO_PAT={self.ADO_PAT}",
-            f"ADO_USER_ID={self.ADO_USER_ID}",
-            f"ADO_DISPLAY_NAME={self.ADO_DISPLAY_NAME}",
+            "# AzDO identity (resolved from PAT by hermes-client configure)",
+            f"AZDO_ORGANIZATION_URL={self.AZDO_ORGANIZATION_URL}",
+            f"AZDO_PAT={self.AZDO_PAT}",
+            f"AZDO_USER_ID={self.AZDO_USER_ID}",
+            f"AZDO_DISPLAY_NAME={self.AZDO_DISPLAY_NAME}",
             "",
             f"SUBSCRIPTIONS={json.dumps(self.SUBSCRIPTIONS)}",
         ]

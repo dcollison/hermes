@@ -115,7 +115,7 @@ Examples:
         "-f",
         default=None,
         metavar="NAME",
-        help="Filter target clients by name substring (e.g. Alice)",
+        help="Filter target clients by name substring (e.g. Dale)",
     )
     parser.add_argument(
         "--project",

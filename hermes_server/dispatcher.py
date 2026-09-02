@@ -4,7 +4,7 @@ import logging
 from datetime import UTC, datetime
 
 # Local
-from .ado_client import get_user_groups
+from .azdo_client import get_user_groups
 from .database import append_log, get_all_clients, make_log_entry, save_client
 from .http_client import get_http_client
 from .models import NotificationPayload
@@ -37,7 +37,7 @@ async def _client_is_relevant(
         return True
 
     # --- identity check ---
-    client_uid = client.get("ado_user_id")
+    client_uid = client.get("azdo_user_id") or client.get("ado_user_id")
     client_display_name = (client.get("display_name") or "").lower().strip()
     client_name = (client.get("name") or "").lower().strip()
 

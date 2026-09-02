@@ -4,7 +4,7 @@ import logging
 import re
 
 # Local
-from .ado_client import (
+from .azdo_client import (
     get_thread_participants,
     get_user_avatar_b64,
     resolve_identity,
@@ -18,7 +18,7 @@ _IDENTITY_STR_RE = re.compile(r"^(.*?)\s*<([^>]+)>\s*$")
 
 
 def _extract_message(payload: dict) -> tuple[str, str]:
-    """Pull the human-readable text straight from ADO's own "message" block
+    """Pull the human-readable text straight from AzDO's own "message" block
     instead of hand-building it, and try to recover a link from the html
     or markdown variant. Falls back to detailedMessage if message is absent.
 
@@ -49,7 +49,7 @@ def parse_identity(ident: dict | str | None) -> dict[str, str | None]:
     Handles strings formatted as ``DisplayName <DOMAIN\\AccountName>``,
     ``DisplayName <email@domain.com>``, or plain ``DisplayName``.
 
-    :param ident: ADO identity dictionary, string, or None.
+    :param ident: AzDO identity dictionary, string, or None.
     :returns: Dictionary with keys ``id``, ``displayName``, ``uniqueName``, ``accountName``.
     """
     if not ident:
@@ -164,7 +164,7 @@ def _mentions(
             if account_name and account_name.lower() == actor_name_lower:
                 continue
 
-        # Skip if user's display name appears in the message (e.g. "Bug created by Alice")
+        # Skip if user's display name appears in the message (e.g. "Bug created by Dale")
         if message and disp_name and disp_name in message:
             continue
 
@@ -296,7 +296,7 @@ async def _format_pr(
                 actor = rev
                 break
 
-    # In ADO Service Hooks 1.0, PR completions are sent as `updated` events with status: completed
+    # In AzDO Service Hooks 1.0, PR completions are sent as `updated` events with status: completed
     if event_type == "git.pullrequest.updated" and status.lower() == "completed":
         event_type = "git.pullrequest.completed"
 

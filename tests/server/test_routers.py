@@ -52,10 +52,11 @@ async def client(tmp_path):
 
 
 REGISTER_BODY = {
-    "name": "Alice's PC",
+    "name": "Dale's PC",
     "callback_url": "http://192.168.1.10:9000/notify",
-    "ado_user_id": "alice-id",
-    "display_name": "Alice Smith",
+    "azdo_user_id": "dale-id",
+    "ado_user_id": "dale-id",
+    "display_name": "Dale",
     "subscriptions": ["pr", "workitem"],
 }
 
@@ -71,24 +72,25 @@ class TestClientRegistration:
         resp = await client.post("/clients/register", json=REGISTER_BODY)
         assert resp.status_code == 200
         data = resp.json()
-        assert data["name"] == "Alice's PC"
-        assert data["ado_user_id"] == "alice-id"
+        assert data["name"] == "Dale's PC"
+        assert data["azdo_user_id"] == "dale-id"
+        assert data["ado_user_id"] == "dale-id"
         assert "id" in data
 
     @pytest.mark.asyncio
     async def test_register_returns_identity_fields(self, client):
         resp = await client.post("/clients/register", json=REGISTER_BODY)
         data = resp.json()
-        assert data["display_name"] == "Alice Smith"
+        assert data["display_name"] == "Dale"
         assert data["subscriptions"] == ["pr", "workitem"]
 
     @pytest.mark.asyncio
     async def test_re_register_same_callback_is_idempotent(self, client):
         await client.post("/clients/register", json=REGISTER_BODY)
-        updated = {**REGISTER_BODY, "name": "Alice's New PC"}
+        updated = {**REGISTER_BODY, "name": "Dale's New PC"}
         resp = await client.post("/clients/register", json=updated)
         assert resp.status_code == 200
-        assert resp.json()["name"] == "Alice's New PC"
+        assert resp.json()["name"] == "Dale's New PC"
         # Only one client should exist
         list_resp = await client.get("/clients/")
         assert len(list_resp.json()) == 1
@@ -147,7 +149,7 @@ class TestWebhookReceiver:
                 "sourceRefName": "refs/heads/feature",
                 "targetRefName": "refs/heads/main",
                 "url": "http://ado/pr/1",
-                "createdBy": {"id": "u1", "displayName": "Alice"},
+                "createdBy": {"id": "u1", "displayName": "Dale"},
                 "reviewers": [],
             },
             "resourceContainers": {"project": {"name": "MyProject"}},
@@ -162,24 +164,28 @@ class TestWebhookReceiver:
             ),
             patch("hermes_server.routers.webhooks.dispatch", new=AsyncMock()),
         ):
-            resp = await client.post("/webhooks/ado", json=self._pr_payload())
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "accepted"
+            resp = await client.post("/webhooks/azdo", json=self._pr_payload())
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "accepted"
+
+            resp2 = await client.post("/webhooks/ado", json=self._pr_payload())
+            assert resp2.status_code == 200
+            assert resp2.json()["status"] == "accepted"
 
     @pytest.mark.asyncio
     async def test_webhook_missing_event_type_returns_400(self, client):
-        resp = await client.post("/webhooks/ado", json={"resource": {}})
+        resp = await client.post("/webhooks/azdo", json={"resource": {}})
         assert resp.status_code == 400
 
     @pytest.mark.asyncio
     async def test_webhook_invalid_secret_returns_401(self, client):
         with patch.object(
             webhooks_router.settings,
-            "ADO_WEBHOOK_SECRET",
+            "AZDO_WEBHOOK_SECRET",
             "correct-secret",
         ):
             resp = await client.post(
-                "/webhooks/ado",
+                "/webhooks/azdo",
                 json=self._pr_payload(),
                 headers={"X-Hub-Signature": "sha1=wrong"},
             )
@@ -188,6 +194,11 @@ class TestWebhookReceiver:
     @pytest.mark.asyncio
     async def test_webhook_no_secret_configured_accepts_all(self, client):
         with (
+            patch.object(
+                webhooks_router.settings,
+                "AZDO_WEBHOOK_SECRET",
+                None,
+            ),
             patch.object(
                 webhooks_router.settings,
                 "ADO_WEBHOOK_SECRET",
@@ -199,7 +210,7 @@ class TestWebhookReceiver:
             ),
             patch("hermes_server.routers.webhooks.dispatch", new=AsyncMock()),
         ):
-            resp = await client.post("/webhooks/ado", json=self._pr_payload())
+            resp = await client.post("/webhooks/azdo", json=self._pr_payload())
         assert resp.status_code == 200
 
 
@@ -277,7 +288,7 @@ class TestManualNotifications:
                 json={
                     "heading": "Deploy",
                     "body": "Going live",
-                    "filter_name_contains": "Alice",
+                    "filter_name_contains": "Dale",
                 },
             )
 
@@ -295,7 +306,7 @@ class TestManualNotifications:
             json={
                 "heading": "Deploy",
                 "body": "Going live",
-                "filter_name_contains": "Bob",
+                "filter_name_contains": "Taiye",
             },
         )
         assert resp.status_code == 200
@@ -349,7 +360,7 @@ class TestNotifyScript:
         mock_resp.raise_for_status = MagicMock()
         mock_resp.json.return_value = {"message": "Notification sent to 1 client(s)"}
 
-        test_args = ["notify.py", "Test Title", "Test Message", "--filter-name", "Alice"]
+        test_args = ["notify.py", "Test Title", "Test Message", "--filter-name", "Dale"]
         with (
             patch.object(sys, "argv", test_args),
             patch("httpx.post", return_value=mock_resp) as mock_post,
@@ -361,7 +372,7 @@ class TestNotifyScript:
         payload = call_kwargs["json"]
         assert payload["heading"] == "Test Title"
         assert payload["body"] == "Test Message"
-        assert payload["filter_name_contains"] == "Alice"
+        assert payload["filter_name_contains"] == "Dale"
 
 
 class TestHealthAndStatusEndpoints:
@@ -380,6 +391,7 @@ class TestHealthAndStatusEndpoints:
         assert data["status"] == "ok"
         assert "uptime_seconds" in data
         assert "clients" in data
+        assert "azdo_configured" in data
         assert "ado_configured" in data
         assert data["clients"]["total_clients"] == 0
 

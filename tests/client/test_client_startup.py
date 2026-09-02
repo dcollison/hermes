@@ -11,13 +11,13 @@ from hermes_client import startup
 
 class TestStartupShortcut:
     def test_get_startup_dir(self):
-        with patch.dict("os.environ", {"APPDATA": "C:\\Users\\Alice\\AppData\\Roaming"}):
+        with patch.dict("os.environ", {"APPDATA": "C:\\Users\\Dale\\AppData\\Roaming"}):
             dir_path = startup._get_startup_dir()
             assert "Startup" in str(dir_path)
-            assert "Alice" in str(dir_path)
+            assert "Dale" in str(dir_path)
 
     def test_get_shortcut_path(self):
-        with patch.dict("os.environ", {"APPDATA": "C:\\Users\\Alice\\AppData\\Roaming"}):
+        with patch.dict("os.environ", {"APPDATA": "C:\\Users\\Dale\\AppData\\Roaming"}):
             path = startup._get_shortcut_path()
             assert path.name == startup.SHORTCUT_NAME
 
@@ -77,7 +77,7 @@ class TestStartupShortcut:
                 Path("C:\\Startup\\Hermes Client.lnk"),
                 "C:\\Python\\pythonw.exe",
                 '"C:\\Scripts\\hermes-client.exe" run',
-                "C:\\Users\\Alice",
+                "C:\\Users\\Dale",
                 "Hermes",
             )
 
@@ -92,7 +92,7 @@ class TestStartupShortcut:
 
     def test_read_shortcut_success(self):
         mock_res = MagicMock()
-        mock_res.stdout = "C:\\pythonw.exe\n\"client.exe\" run\nC:\\Users\\Alice\nHermes\n"
+        mock_res.stdout = "C:\\pythonw.exe\n\"client.exe\" run\nC:\\Users\\Dale\nHermes\n"
         with (
             patch("pathlib.Path.exists", return_value=True),
             patch("subprocess.run", return_value=mock_res),
@@ -101,7 +101,7 @@ class TestStartupShortcut:
             assert info is not None
             assert info["target_path"] == "C:\\pythonw.exe"
             assert info["arguments"] == '"client.exe" run'
-            assert info["working_directory"] == "C:\\Users\\Alice"
+            assert info["working_directory"] == "C:\\Users\\Dale"
 
     def test_install_success(self):
         mock_create = MagicMock()
@@ -178,7 +178,7 @@ class TestStartupShortcut:
                 return_value={
                     "target_path": "C:\\pythonw.exe",
                     "arguments": "client.exe run",
-                    "working_directory": "C:\\Users\\Alice",
+                    "working_directory": "C:\\Users\\Dale",
                 },
             ),
             patch("builtins.print") as mock_print,

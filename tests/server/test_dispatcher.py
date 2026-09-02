@@ -7,17 +7,20 @@ import pytest
 
 def _make_client(
     client_id="c1",
-    ado_user_id="user-1",
-    display_name="Alice",
+    azdo_user_id=None,
+    display_name="Dale",
     subscriptions=None,
     active=True,
     callback_url="http://host:9000/notify",
+    ado_user_id=None,
 ):
+    uid = azdo_user_id or ado_user_id or "user-1"
     return {
         "id": client_id,
         "name": "Test Client",
         "callback_url": callback_url,
-        "ado_user_id": ado_user_id,
+        "azdo_user_id": uid,
+        "ado_user_id": uid,
         "display_name": display_name,
         "subscriptions": subscriptions or ["pr", "workitem", "pipeline", "manual"],
         "active": active,
@@ -259,8 +262,8 @@ class TestClientIsRelevant:
     async def test_direct_display_name_match(self):
         assert (
             await self._check(
-                _make_client(display_name="Carol Smith"),
-                _make_notification(mentioned_names=["Carol Smith"]),
+                _make_client(display_name="Katherine"),
+                _make_notification(mentioned_names=["Katherine"]),
             )
             is True
         )
@@ -268,11 +271,11 @@ class TestClientIsRelevant:
     async def test_actor_name_suppression_without_actor_id(self):
         assert (
             await self._check(
-                _make_client(display_name="Dale Collison"),
+                _make_client(display_name="Stephen"),
                 _make_notification(
-                    actor="Dale Collison",
+                    actor="Stephen",
                     actor_id=None,
-                    mentioned_names=["Bob"],
+                    mentioned_names=["Taiye"],
                 ),
             )
             is False
@@ -281,14 +284,14 @@ class TestClientIsRelevant:
     async def test_workitem_self_edit_not_broadcast_to_other_clients(self):
         notif = _make_notification(
             event_type="workitem",
-            actor="Dale Collison",
-            meta={"assigned_to": "Dale Collison"},
+            actor="Dale",
+            meta={"assigned_to": "Dale"},
             mentioned_user_ids=[],
             mentioned_names=[],
         )
         assert (
             await self._check(
-                _make_client(display_name="Bob Jones"),
+                _make_client(display_name="Taiye"),
                 notif,
             )
             is False
@@ -297,14 +300,14 @@ class TestClientIsRelevant:
     async def test_workitem_self_edit_not_delivered_to_actor(self):
         notif = _make_notification(
             event_type="workitem",
-            actor="Dale Collison",
-            meta={"assigned_to": "Dale Collison"},
+            actor="Dale",
+            meta={"assigned_to": "Dale"},
             mentioned_user_ids=[],
             mentioned_names=[],
         )
         assert (
             await self._check(
-                _make_client(display_name="Dale Collison"),
+                _make_client(display_name="Dale"),
                 notif,
             )
             is False
@@ -329,14 +332,14 @@ class TestClientIsRelevant:
         # Other subscribers also do not receive unassigned work item
         assert (
             await self._check(
-                _make_client(display_name="Bob Jones"),
+                _make_client(display_name="Taiye"),
                 notif,
             )
             is False
         )
         assert (
             await self._check(
-                _make_client(display_name="Dale Collison"),
+                _make_client(display_name="Dale"),
                 notif,
             )
             is False
@@ -345,15 +348,15 @@ class TestClientIsRelevant:
     async def test_workitem_assigned_to_other_not_delivered_to_client(self):
         notif = _make_notification(
             event_type="workitem",
-            actor="Alice",
-            meta={"assigned_to": "Bob Jones"},
+            actor="Liam",
+            meta={"assigned_to": "Vinod"},
             mentioned_user_ids=[],
-            mentioned_names=["Bob Jones", "DOMAIN\\Bob.Jones", "Bob.Jones"],
+            mentioned_names=["Vinod", "DOMAIN\\Vinod", "Vinod"],
         )
         # Target recipient receives it
         assert (
             await self._check(
-                _make_client(display_name="Bob Jones"),
+                _make_client(display_name="Vinod"),
                 notif,
             )
             is True
@@ -361,7 +364,7 @@ class TestClientIsRelevant:
         # Unrelated client does not receive it
         assert (
             await self._check(
-                _make_client(display_name="Dale Collison"),
+                _make_client(display_name="Dale"),
                 notif,
             )
             is False
