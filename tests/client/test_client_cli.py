@@ -80,10 +80,30 @@ class TestPromptHelper:
             val = _prompt("Enter value", default="my-default")
             assert val == "user-input"
 
-    def test_prompt_secret(self):
-        with patch("getpass.getpass", return_value="secret-pat"):
+    def test_prompt_secret_tty(self):
+        with (
+            patch("sys.stdin.isatty", return_value=True),
+            patch("getpass.getpass", return_value="secret-pat"),
+        ):
             val = _prompt("Enter PAT", default="", secret=True)
             assert val == "secret-pat"
+
+    def test_prompt_secret_non_tty_git_bash_fallback(self):
+        with (
+            patch("sys.stdin.isatty", return_value=False),
+            patch("builtins.input", return_value="secret-pat-from-pipe"),
+        ):
+            val = _prompt("Enter PAT", default="", secret=True)
+            assert val == "secret-pat-from-pipe"
+
+    def test_prompt_secret_getpass_error_fallback(self):
+        with (
+            patch("sys.stdin.isatty", return_value=True),
+            patch("getpass.getpass", side_effect=OSError("Not a console")),
+            patch("builtins.input", return_value="secret-fallback"),
+        ):
+            val = _prompt("Enter PAT", default="", secret=True)
+            assert val == "secret-fallback"
 
 
 class TestStartupNotification:

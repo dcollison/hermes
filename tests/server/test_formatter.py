@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture(autouse=True)
 def no_avatar():
     with patch(
-        "hermes_server.ado_client.get_user_avatar_b64",
+        "hermes_server.azdo_client.get_user_avatar_b64",
         new=AsyncMock(return_value=None),
     ):
         yield

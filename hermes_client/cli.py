@@ -104,13 +104,24 @@ def _prompt(label: str, default: str = "", secret: bool = False) -> str:
 
     :param label: Text prompt label to display.
     :param default: Default string value used if input is blank.
-    :param secret: Whether to mask user input via getpass for secrets.
+    :param secret: Whether to mask user input for secrets.
     :returns: Entered string value or default.
     """
     hint = f" [{default if not secret else '***'}]" if default else ""
     prompt_str = f"  {label}{hint}: "
     if secret:
-        value = getpass.getpass(prompt_str).strip()
+        # In environments like Git Bash (mintty) on Windows, sys.stdin is an MSYS pipe
+        # rather than a native Windows console character device. getpass.getpass()
+        # uses msvcrt.getwch() on Windows which hangs indefinitely if not attached
+        # to a real console buffer. Fall back to input() when stdin is not a tty or on error.
+        is_tty = hasattr(sys.stdin, "isatty") and sys.stdin.isatty()
+        if is_tty:
+            try:
+                value = getpass.getpass(prompt_str).strip()
+            except (OSError, Exception):
+                value = input(prompt_str).strip()
+        else:
+            value = input(prompt_str).strip()
     else:
         value = input(prompt_str).strip()
     return value or default
@@ -219,7 +230,7 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
     :returns: Populated ClientSettings instance.
     """
     # Local
-    from .ado import resolve_callback_url, resolve_identity
+    from .azdo import resolve_callback_url, resolve_identity
 
     settings = ClientSettings()
 
