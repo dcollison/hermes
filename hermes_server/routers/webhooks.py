@@ -26,7 +26,7 @@ def _verify_secret(body: bytes, signature: str | None) -> bool:
     :param signature: Value of the X-Hub-Signature header.
     :returns: True if signature matches or secret is unconfigured; False otherwise.
     """
-    secret = settings.AZDO_WEBHOOK_SECRET or settings.ADO_WEBHOOK_SECRET
+    secret = settings.AZDO_WEBHOOK_SECRET
     if not secret:
         return True  # No secret configured - accept all
     if not signature:
@@ -73,7 +73,6 @@ async def _log_webhook(payload: dict, event_type: str) -> None:
 
 
 @router.post("/azdo")
-@router.post("/ado")
 async def receive_webhook(
     request: Request,
     x_hub_signature: str | None = Header(None),

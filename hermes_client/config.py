@@ -6,7 +6,6 @@ import sys
 from pathlib import Path
 
 # Remote
-from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings
 
 
@@ -133,25 +132,13 @@ class ClientSettings(BaseSettings):
     # Resolved at configure-time and persisted to .env.hermes-client.
     # Left blank so the startup logic knows to prompt/resolve them if missing.
     CALLBACK_URL: str = ""
-    AZDO_USER_ID: str = Field(
-        default="",
-        validation_alias=AliasChoices("AZDO_USER_ID", "ADO_USER_ID"),
-    )
-    AZDO_DISPLAY_NAME: str = Field(
-        default="",
-        validation_alias=AliasChoices("AZDO_DISPLAY_NAME", "ADO_DISPLAY_NAME"),
-    )
+    AZDO_USER_ID: str = ""
+    AZDO_DISPLAY_NAME: str = ""
 
     # AzDO credentials — used once during `configure` to resolve identity.
     # Stored in the env file so `run` can re-resolve on demand if needed.
-    AZDO_ORGANIZATION_URL: str = Field(
-        default="",
-        validation_alias=AliasChoices("AZDO_ORGANIZATION_URL", "ADO_ORGANIZATION_URL"),
-    )
-    AZDO_PAT: str = Field(
-        default="",
-        validation_alias=AliasChoices("AZDO_PAT", "ADO_PAT"),
-    )
+    AZDO_ORGANIZATION_URL: str = ""
+    AZDO_PAT: str = ""
 
     LOG_FILE: str = ""
 
@@ -160,6 +147,7 @@ class ClientSettings(BaseSettings):
     model_config = {
         "env_file": _find_env_file(),
         "env_file_encoding": "utf-8",
+        "extra": "ignore",
     }
 
     def is_fully_configured(self) -> bool:

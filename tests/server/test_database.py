@@ -63,7 +63,6 @@ class TestConstructors:
         )
         assert c["name"] == "Dale's PC"
         assert c["azdo_user_id"] == "uid-1"
-        assert c["ado_user_id"] == "uid-1"
         assert c["display_name"] == "Dale"
         assert c["subscriptions"] == ["pr"]
         assert c["active"] is True

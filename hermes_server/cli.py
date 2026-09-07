@@ -92,13 +92,13 @@ def _build_simulate_parser(sub: argparse._SubParsersAction) -> None:
     """
     sim_p = sub.add_parser(
         "simulate",
-        help="Fire a fake ADO webhook at a running server for local testing",
+        help="Fire a fake AzDO webhook at a running server for local testing",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         description=(
-            "Sends a realistic fake ADO webhook payload to a running Hermes server.\n"
+            "Sends a realistic fake AzDO webhook payload to a running Hermes server.\n"
             "Use this to test the full stack — formatting, dispatch, and client toasts —\n"
             "without needing a real Azure DevOps instance.\n\n"
-            "The --user-id must match the ADO user ID of a registered client so that\n"
+            "The --user-id must match the AzDO user ID of a registered client so that\n"
             "the dispatcher's mention-matching routes the notification to that client.\n\n"
             "Run `hermes-server simulate --list` to see all available event types."
         ),
@@ -125,7 +125,7 @@ def _build_simulate_parser(sub: argparse._SubParsersAction) -> None:
         "--user-id",
         default=None,
         metavar="GUID",
-        help="ADO user ID — must match a registered client to trigger routing",
+        help="AzDO user ID — must match a registered client to trigger routing",
     )
     sim_p.add_argument(
         "--list",
@@ -201,14 +201,13 @@ def _cmd_simulate(args: argparse.Namespace) -> None:
     if not args.user_id:
         print(
             f"\n   No --user-id supplied. Using random ID: {user_id}\n"
-            f"     This notification will broadcast to all subscribed clients\n"
-            f"     rather than routing by mention. To test mention routing,\n"
-            f"     pass the ADO user ID of your registered client.\n",
+            f"     This notification will route only if clients match this ID.\n"
+            f"     To test mention routing, pass the AzDO user ID of your registered client.\n",
         )
 
     # Determine which events to run based on user selection
     events_to_run = EVENTS if event_name == "all" else [event_name]
-    url = f"{args.server.rstrip('/')}/webhooks/ado"
+    url = f"{args.server.rstrip('/')}/webhooks/azdo"
 
     for ev in events_to_run:
         payload = generate_payload(ev, user_id)

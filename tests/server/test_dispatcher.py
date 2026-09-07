@@ -12,15 +12,13 @@ def _make_client(
     subscriptions=None,
     active=True,
     callback_url="http://host:9000/notify",
-    ado_user_id=None,
 ):
-    uid = azdo_user_id or ado_user_id or "user-1"
+    uid = azdo_user_id or "user-1"
     return {
         "id": client_id,
         "name": "Test Client",
         "callback_url": callback_url,
         "azdo_user_id": uid,
-        "ado_user_id": uid,
         "display_name": display_name,
         "subscriptions": subscriptions or ["pr", "workitem", "pipeline", "manual"],
         "active": active,
@@ -95,7 +93,7 @@ class TestClientIsRelevant:
         )
 
     async def test_all_subscription_matches_any_event(self):
-        client = _make_client(ado_user_id="user-1", subscriptions=["all"])
+        client = _make_client(azdo_user_id="user-1", subscriptions=["all"])
         for event_type in ("pr", "workitem", "pipeline", "manual"):
             assert (
                 await self._check(
@@ -122,7 +120,7 @@ class TestClientIsRelevant:
         # Leave mentions empty, or mention someone else
         assert (
             await self._check(
-                _make_client(ado_user_id="user-1"),
+                _make_client(azdo_user_id="user-1"),
                 _make_notification(actor_id="user-1", mentioned_user_ids=["user-2"]),
             )
             is False
@@ -132,7 +130,7 @@ class TestClientIsRelevant:
         # This covers the exception rule for PR completions / build finishes
         assert (
             await self._check(
-                _make_client(ado_user_id="user-1"),
+                _make_client(azdo_user_id="user-1"),
                 _make_notification(actor_id="user-1", mentioned_user_ids=["user-1"]),
             )
             is True
@@ -141,7 +139,7 @@ class TestClientIsRelevant:
     async def test_other_user_not_suppressed_by_actor(self):
         assert (
             await self._check(
-                _make_client(ado_user_id="user-2"),
+                _make_client(azdo_user_id="user-2"),
                 _make_notification(actor_id="user-1", mentioned_user_ids=["user-2"]),
             )
             is True
@@ -182,7 +180,7 @@ class TestClientIsRelevant:
     async def test_mentioned_user_receives_notification(self):
         assert (
             await self._check(
-                _make_client(ado_user_id="user-1"),
+                _make_client(azdo_user_id="user-1"),
                 _make_notification(mentioned_user_ids=["user-1"]),
             )
             is True
@@ -191,7 +189,7 @@ class TestClientIsRelevant:
     async def test_non_mentioned_user_blocked_when_mentions_exist(self):
         assert (
             await self._check(
-                _make_client(ado_user_id="user-99"),
+                _make_client(azdo_user_id="user-99"),
                 _make_notification(mentioned_user_ids=["user-1"]),
             )
             is False
@@ -206,7 +204,7 @@ class TestClientIsRelevant:
         ):
             assert (
                 await self._check(
-                    _make_client(ado_user_id="user-1"),
+                    _make_client(azdo_user_id="user-1"),
                     _make_notification(mentioned_names=["Backend Team"]),
                 )
                 is True
@@ -219,7 +217,7 @@ class TestClientIsRelevant:
         ):
             assert (
                 await self._check(
-                    _make_client(ado_user_id="user-1"),
+                    _make_client(azdo_user_id="user-1"),
                     _make_notification(mentioned_user_ids=["group-123"]),
                 )
                 is True
@@ -232,7 +230,7 @@ class TestClientIsRelevant:
         ):
             assert (
                 await self._check(
-                    _make_client(ado_user_id="user-1"),
+                    _make_client(azdo_user_id="user-1"),
                     _make_notification(mentioned_names=["Backend Team"]),
                 )
                 is True
@@ -245,7 +243,7 @@ class TestClientIsRelevant:
         ):
             assert (
                 await self._check(
-                    _make_client(ado_user_id="user-1"),
+                    _make_client(azdo_user_id="user-1"),
                     _make_notification(mentioned_names=["Backend Team"]),
                 )
                 is False
@@ -255,7 +253,7 @@ class TestClientIsRelevant:
         mock_groups = AsyncMock(return_value={"ids": [], "names": ["Some Group"]})
         with patch("hermes_server.dispatcher.get_user_groups", new=mock_groups):
             await self._check(
-                _make_client(ado_user_id="user-1"),
+                _make_client(azdo_user_id="user-1"),
                 _make_notification(
                     mentioned_user_ids=["user-1"],
                     mentioned_names=["Some Group"],
@@ -267,7 +265,7 @@ class TestClientIsRelevant:
         mock_groups = AsyncMock(return_value={"ids": [], "names": ["Backend Team"]})
         with patch("hermes_server.dispatcher.get_user_groups", new=mock_groups):
             await self._check(
-                _make_client(ado_user_id="user-1"),
+                _make_client(azdo_user_id="user-1"),
                 _make_notification(mentioned_user_ids=["user-99"], mentioned_names=[]),
             )
         mock_groups.assert_called_once()
@@ -411,7 +409,7 @@ class TestDispatch:
         return mock_http
 
     async def test_eligible_client_receives_notification(self):
-        client = _make_client(ado_user_id="user-1", callback_url="http://host/notify")
+        client = _make_client(azdo_user_id="user-1", callback_url="http://host/notify")
         notif = _make_notification(event_type="pr", mentioned_user_ids=["user-1"])
         mock_http = self._mock_http()
 
@@ -432,7 +430,7 @@ class TestDispatch:
         assert mock_http.post.call_args[0][0] == "http://host/notify"
 
     async def test_ineligible_client_not_called(self):
-        client = _make_client(ado_user_id="user-99")
+        client = _make_client(azdo_user_id="user-99")
         notif = _make_notification(event_type="pr", mentioned_user_ids=["user-1"])
         mock_http = self._mock_http()
 
@@ -451,7 +449,7 @@ class TestDispatch:
         mock_http.post.assert_not_called()
 
     async def test_inactive_client_skipped(self):
-        client = _make_client(ado_user_id="user-1", active=False)
+        client = _make_client(azdo_user_id="user-1", active=False)
         notif = _make_notification(event_type="pr", mentioned_user_ids=["user-1"])
         mock_http = self._mock_http()
 
@@ -470,7 +468,7 @@ class TestDispatch:
         mock_http.post.assert_not_called()
 
     async def test_failed_delivery_logged_with_error(self):
-        client = _make_client(ado_user_id="user-1", callback_url="http://host/notify")
+        client = _make_client(azdo_user_id="user-1", callback_url="http://host/notify")
         notif = _make_notification(event_type="pr", mentioned_user_ids=["user-1"])
         mock_log = AsyncMock()
 

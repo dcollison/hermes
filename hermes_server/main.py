@@ -73,7 +73,6 @@ async def server_status() -> dict:
         "uptime_seconds": round(uptime, 2),
         "clients": stats,
         "azdo_configured": is_azdo_configured,
-        "ado_configured": is_azdo_configured,
         "webhook_secret_enabled": bool(settings.AZDO_WEBHOOK_SECRET),
     }
 

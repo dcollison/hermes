@@ -12,7 +12,7 @@ This document serves as the guide for AI coding assistants working in the Hermes
 
 1. **`hermes_server`** (FastAPI):
    - Runs on a centralized build/infrastructure server (default port `8000`).
-   - Endpoint `/webhooks/azdo` (or legacy `/webhooks/ado`) receives Service Hook payloads from Azure DevOps.
+   - Endpoint `/webhooks/azdo` receives Service Hook payloads from Azure DevOps.
    - Evaluates client subscriptions and team/group mentions (via `azdo_client.py` and `dispatcher.py`).
    - Persists client registrations to `data/clients.json` and delivery logs to `data/notifications.log`.
    - Includes webhook event simulator (`hermes-server simulate`).

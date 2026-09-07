@@ -37,7 +37,7 @@ async def _client_is_relevant(
         return True
 
     # --- identity check ---
-    client_uid = client.get("azdo_user_id") or client.get("ado_user_id")
+    client_uid = client.get("azdo_user_id")
     client_display_name = (client.get("display_name") or "").lower().strip()
     client_name = (client.get("name") or "").lower().strip()
 

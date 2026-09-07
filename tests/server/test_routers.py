@@ -55,7 +55,6 @@ REGISTER_BODY = {
     "name": "Dale's PC",
     "callback_url": "http://192.168.1.10:9000/notify",
     "azdo_user_id": "dale-id",
-    "ado_user_id": "dale-id",
     "display_name": "Dale",
     "subscriptions": ["pr", "workitem"],
 }
@@ -74,7 +73,6 @@ class TestClientRegistration:
         data = resp.json()
         assert data["name"] == "Dale's PC"
         assert data["azdo_user_id"] == "dale-id"
-        assert data["ado_user_id"] == "dale-id"
         assert "id" in data
 
     @pytest.mark.asyncio
@@ -169,10 +167,6 @@ class TestWebhookReceiver:
             assert resp.status_code == 200
             assert resp.json()["status"] == "accepted"
 
-            resp2 = await client.post("/webhooks/ado", json=self._pr_payload())
-            assert resp2.status_code == 200
-            assert resp2.json()["status"] == "accepted"
-
     @pytest.mark.asyncio
     async def test_webhook_missing_event_type_returns_400(self, client):
         resp = await client.post("/webhooks/azdo", json={"resource": {}})
@@ -198,11 +192,6 @@ class TestWebhookReceiver:
             patch.object(
                 webhooks_router.settings,
                 "AZDO_WEBHOOK_SECRET",
-                None,
-            ),
-            patch.object(
-                webhooks_router.settings,
-                "ADO_WEBHOOK_SECRET",
                 None,
             ),
             patch(
@@ -456,6 +445,5 @@ class TestHealthAndStatusEndpoints:
         assert "uptime_seconds" in data
         assert "clients" in data
         assert "azdo_configured" in data
-        assert "ado_configured" in data
         assert data["clients"]["total_clients"] == 0
 

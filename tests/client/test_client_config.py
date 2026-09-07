@@ -148,8 +148,8 @@ class TestClientConfig:
             AZDO_DISPLAY_NAME="Dale",
         )
         assert settings.is_fully_configured() is True
-        assert settings.ADO_USER_ID == "user-123"
-        assert settings.ADO_DISPLAY_NAME == "Dale"
+        assert settings.AZDO_USER_ID == "user-123"
+        assert settings.AZDO_DISPLAY_NAME == "Dale"
 
         incomplete = ClientSettings(
             SERVER_URL="",

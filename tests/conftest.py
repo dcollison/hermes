@@ -93,7 +93,6 @@ def client_record(dale):
         "name": "Dale's PC",
         "callback_url": "http://192.168.1.10:9000/notify",
         "azdo_user_id": dale["id"],
-        "ado_user_id": dale["id"],
         "display_name": dale["displayName"],
         "subscriptions": ["pr", "workitem", "pipeline", "manual"],
         "active": True,

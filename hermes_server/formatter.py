@@ -123,12 +123,12 @@ def _mentions(
     actor_name: str | None = None,
     message: str | None = None,
 ) -> dict[str, list[str]]:
-    """Build a mentions dict from ADO identity dicts, parsed identities, or plain strings.
+    """Build a mentions dict from AzDO identity dicts, parsed identities, or plain strings.
 
     The actor is excluded so they don't get notified of their own actions.
     Users whose names appear in the notification message are also excluded.
 
-    :param identities: ADO identity dictionaries, strings, or None.
+    :param identities: AzDO identity dictionaries, strings, or None.
     :param actor_id: Optional ID of the user initiating the action to exclude.
     :param actor_name: Optional display name or account name of the actor to exclude.
     :param message: Optional notification message text to filter named users.
@@ -182,11 +182,11 @@ def _mentions(
 
 
 async def format_webhook(event_type: str, payload: dict) -> dict[str, object] | None:
-    """Parse an ADO webhook payload and return a notification dict.
+    """Parse an AzDO webhook payload and return a notification dict.
 
     :param event_type: Azure DevOps webhook event type identifier.
-    :param payload: Complete ADO webhook payload dictionary.
-    :returns: Formatted notification dictionary, or None if unhandled.
+    :param payload: Complete AzDO webhook payload dictionary.
+    :returns: Formatted Hermes notification dictionary, or None if unhandled.
     """
     try:
         resource = payload.get("resource", {})
@@ -433,7 +433,7 @@ async def _format_workitem(
     actor_name = actor_info["displayName"] or "Someone"
     actor_id = actor_info.get("id")
 
-    # If actor_id is missing, try resolving identity from ADO
+    # If actor_id is missing, try resolving identity from AzDO
     if not actor_id:
         query = actor_info.get("uniqueName") or actor_info.get("displayName")
         if query:

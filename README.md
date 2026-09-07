@@ -203,7 +203,6 @@ curl -X POST http://your-server:8000/notifications/send \
 | Endpoint                      | Method | Description                  |
 |-------------------------------|--------|------------------------------|
 | `/webhooks/azdo`              | POST   | AzDO webhook receiver        |
-| `/webhooks/ado`               | POST   | Legacy webhook receiver alias|
 | `/clients/register`           | POST   | Register a client            |
 | `/clients/`                   | GET    | List all clients             |
 | `/clients/{id}`               | DELETE | Unregister a client          |

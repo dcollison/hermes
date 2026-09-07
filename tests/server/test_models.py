@@ -45,18 +45,6 @@ def test_client_record_model():
     assert client.active is True
     assert client.subscriptions == []
     assert client.azdo_user_id == "u-1"
-    assert client.ado_user_id == "u-1"
-
-    client_legacy = ClientRecord(
-        id="c-123",
-        name="My PC",
-        callback_url="http://127.0.0.1:9000/notify",
-        ado_user_id="u-1",
-        display_name="Dale",
-        registered_at="2026-01-01T00:00:00Z",
-    )
-    assert client_legacy.azdo_user_id == "u-1"
-    assert client_legacy.ado_user_id == "u-1"
 
 
 def test_delivery_log_entry_model():

@@ -29,7 +29,7 @@ Example session:
   Hermes server URL [http://localhost:8000]: http://build-server:8000
 
 ── Azure DevOps ────────────────────────────────────────────
-  AzDO organisation URL: http://ado-server/DefaultCollection
+  AzDO organisation URL: http://azdo-server/DefaultCollection
   Personal Access Token: ********************************
 
   Resolving your AzDO identity… ✓

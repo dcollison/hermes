@@ -147,8 +147,8 @@ class TestStartupNotification:
             host=None,
             port=None,
             callback_url="http://localhost:9000/notify",
-            ado_user_id="u1",
-            ado_display_name="User",
+            azdo_user_id="u1",
+            azdo_display_name="User",
             log_file="C:\\custom\\client.log",
         )
         settings = _resolve_runtime_settings(args)

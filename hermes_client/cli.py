@@ -115,7 +115,6 @@ def register_with_server(
         "name": settings.CLIENT_NAME,
         "callback_url": settings.CALLBACK_URL,
         "azdo_user_id": settings.AZDO_USER_ID,
-        "ado_user_id": settings.AZDO_USER_ID,
         "display_name": settings.AZDO_DISPLAY_NAME,
         "subscriptions": settings.SUBSCRIPTIONS,
     }
@@ -216,7 +215,7 @@ def _cmd_configure(args: argparse.Namespace) -> None:
     print("── Azure DevOps ────────────────────────────────────────────")
     print("  Your PAT needs at least Read access to Identity and Profile.")
     settings.AZDO_ORGANIZATION_URL = _prompt(
-        "AzDO organisation URL (e.g. http://ado-server/DefaultCollection)",
+        "AzDO organisation URL (e.g. http://azdo-server/DefaultCollection)",
         settings.AZDO_ORGANIZATION_URL,
     )
     settings.AZDO_PAT = _prompt("Personal Access Token", settings.AZDO_PAT, secret=True)
@@ -308,10 +307,10 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
         settings.LOCAL_PORT = args.port
     if getattr(args, "callback_url", None):
         settings.CALLBACK_URL = args.callback_url
-    if getattr(args, "ado_user_id", None):
-        settings.ADO_USER_ID = args.ado_user_id
-    if getattr(args, "ado_display_name", None):
-        settings.ADO_DISPLAY_NAME = args.ado_display_name
+    if getattr(args, "azdo_user_id", None):
+        settings.AZDO_USER_ID = args.azdo_user_id
+    if getattr(args, "azdo_display_name", None):
+        settings.AZDO_DISPLAY_NAME = args.azdo_display_name
     if getattr(args, "log_file", None):
         settings.LOG_FILE = args.log_file
 
@@ -321,27 +320,27 @@ def _resolve_runtime_settings(args: argparse.Namespace) -> ClientSettings:
         logger.info(f"Callback URL auto-detected: {settings.CALLBACK_URL}")
 
     # Auto-resolve identity from PAT if user/name still missing
-    if settings.ADO_ORGANIZATION_URL and settings.ADO_PAT:
-        if not settings.ADO_USER_ID or not settings.ADO_DISPLAY_NAME:
+    if settings.AZDO_ORGANIZATION_URL and settings.AZDO_PAT:
+        if not settings.AZDO_USER_ID or not settings.AZDO_DISPLAY_NAME:
             try:
-                logger.info("Resolving ADO identity from PAT…")
+                logger.info("Resolving AzDO identity from PAT…")
                 identity = resolve_identity(
-                    settings.ADO_ORGANIZATION_URL,
-                    settings.ADO_PAT,
+                    settings.AZDO_ORGANIZATION_URL,
+                    settings.AZDO_PAT,
                 )
-                settings.ADO_USER_ID = settings.ADO_USER_ID or identity["user_id"]
-                settings.ADO_DISPLAY_NAME = (
-                    settings.ADO_DISPLAY_NAME or identity["display_name"]
+                settings.AZDO_USER_ID = settings.AZDO_USER_ID or identity["user_id"]
+                settings.AZDO_DISPLAY_NAME = (
+                    settings.AZDO_DISPLAY_NAME or identity["display_name"]
                 )
                 logger.info(
-                    f"Identity resolved: {settings.ADO_DISPLAY_NAME} ({settings.ADO_USER_ID})",
+                    f"Identity resolved: {settings.AZDO_DISPLAY_NAME} ({settings.AZDO_USER_ID})",
                 )
             except Exception as e:
-                logger.warning(f"Could not resolve ADO identity: {e}")
+                logger.warning(f"Could not resolve AzDO identity: {e}")
 
-    if not settings.ADO_USER_ID or not settings.ADO_DISPLAY_NAME:
+    if not settings.AZDO_USER_ID or not settings.AZDO_DISPLAY_NAME:
         logger.warning(
-            "ADO identity is not configured — notifications cannot be routed to you. "
+            "AzDO identity is not configured — notifications cannot be routed to you. "
             "Run `hermes-client configure` to set this up.",
         )
 
@@ -391,15 +390,15 @@ def _cmd_run(args: argparse.Namespace) -> None:
     logger.info(f"Server       : {settings.SERVER_URL}")
     logger.info(f"Callback URL : {settings.CALLBACK_URL}")
     logger.info(
-        f"Identity     : {settings.ADO_DISPLAY_NAME or '(not set)'} "
-        f"({settings.ADO_USER_ID or 'none'})",
+        f"Identity     : {settings.AZDO_DISPLAY_NAME or '(not set)'} "
+        f"({settings.AZDO_USER_ID or 'none'})",
     )
 
     def _heartbeat_loop():
         time.sleep(2)
         reg_result = register_with_server(settings)
         if reg_result:
-            display_user = settings.ADO_DISPLAY_NAME or settings.CLIENT_NAME
+            display_user = settings.AZDO_DISPLAY_NAME or settings.CLIENT_NAME
             show_notification(
                 {
                     "heading": "Hermes Connected",
@@ -646,16 +645,14 @@ def _build_parser() -> argparse.ArgumentParser:
     run_p.add_argument("--port", metavar="PORT", type=int, help="Local listen port")
     run_p.add_argument("--callback-url", metavar="URL", help="Override callback URL")
     run_p.add_argument(
-        "--ado-user-id",
         "--azdo-user-id",
-        dest="ado_user_id",
+        dest="azdo_user_id",
         metavar="GUID",
         help="Override AzDO identity GUID",
     )
     run_p.add_argument(
-        "--ado-display-name",
         "--azdo-display-name",
-        dest="ado_display_name",
+        dest="azdo_display_name",
         metavar="NAME",
         help="Override AzDO display name",
     )

@@ -23,7 +23,7 @@ def get_http_client() -> httpx.AsyncClient:
         _client = httpx.AsyncClient(
             limits=limits,
             timeout=10.0,
-            verify=settings.ADO_SSL_VERIFY,
+            verify=settings.AZDO_SSL_VERIFY,
         )
     return _client
 

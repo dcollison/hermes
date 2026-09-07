@@ -2,7 +2,7 @@
 from typing import Any
 
 # Remote
-from pydantic import AliasChoices, BaseModel, Field
+from pydantic import BaseModel, Field
 
 
 class Mentions(BaseModel):
@@ -43,19 +43,12 @@ class ClientRecord(BaseModel):
     id: str
     name: str
     callback_url: str
-    azdo_user_id: str = Field(
-        default="",
-        validation_alias=AliasChoices("azdo_user_id", "ado_user_id"),
-    )
+    azdo_user_id: str = ""
     display_name: str
     subscriptions: list[str] = Field(default_factory=list)
     active: bool = True
     registered_at: str
     last_seen: str | None = None
-
-    @property
-    def ado_user_id(self) -> str:
-        return self.azdo_user_id
 
 
 class DeliveryLogEntry(BaseModel):

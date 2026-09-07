@@ -109,9 +109,7 @@ def _resolve_default_sender(config: dict[str, str] | None = None) -> str | None:
     sender = (
         os.environ.get("HERMES_NOTIFY_FROM")
         or os.environ.get("AZDO_DISPLAY_NAME")
-        or os.environ.get("ADO_DISPLAY_NAME")
         or cfg.get("AZDO_DISPLAY_NAME")
-        or cfg.get("ADO_DISPLAY_NAME")
         or os.environ.get("CLIENT_NAME")
         or cfg.get("CLIENT_NAME")
         or os.environ.get("USERNAME")

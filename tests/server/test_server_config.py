@@ -44,7 +44,7 @@ class TestServerConfig:
         ):
             assert _find_env_file() is None
 
-    def test_azdo_settings_and_ado_aliases(self):
+    def test_azdo_settings(self):
         from hermes_server.config import Settings
 
         s = Settings(
@@ -54,10 +54,6 @@ class TestServerConfig:
             AZDO_SSL_VERIFY=True,
         )
         assert s.AZDO_ORGANIZATION_URL == "http://server/azdo"
-        assert s.ADO_ORGANIZATION_URL == "http://server/azdo"
-        assert s.ADO_PAT == "secret"
-        assert s.ADO_WEBHOOK_SECRET == "whsec"
-        assert s.ADO_SSL_VERIFY is True
-
-        s.ADO_PAT = "new-pat"
-        assert s.AZDO_PAT == "new-pat"
+        assert s.AZDO_PAT == "secret"
+        assert s.AZDO_WEBHOOK_SECRET == "whsec"
+        assert s.AZDO_SSL_VERIFY is True
