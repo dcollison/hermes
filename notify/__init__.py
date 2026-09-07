@@ -155,22 +155,12 @@ def main() -> None:
         epilog="""
 Examples:
   hermes-notify "Heads up" "Prod deployment in 5 minutes"
-  hermes-notify "Build failed" "Pipeline #42 failed on main" --from "CI Runner"
   hermes-notify "Done" "Release shipped!" --server http://build-server:8000
         """,
     )
 
     parser.add_argument("title", help="Notification title")
     parser.add_argument("message", help="Notification body text")
-    parser.add_argument(
-        "--from",
-        "--sender",
-        "-F",
-        dest="sender",
-        default=default_sender,
-        metavar="SENDER",
-        help=f"Sender name attached to the notification (default: {default_sender or 'Hermes'})",
-    )
     parser.add_argument(
         "--image",
         "-i",
@@ -216,7 +206,7 @@ Examples:
         "url": args.url,
         "filter_name_contains": args.filter_name,
         "filter_project": args.project,
-        "actor": args.sender,
+        "actor": default_sender,
     }
 
     if args.image:

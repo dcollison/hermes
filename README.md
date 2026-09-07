@@ -157,9 +157,6 @@ SUBSCRIPTIONS=["pr", "workitem", "manual"]
 # Send a broadcast to all clients
 hermes-notify "Heads up" "Dev database is restarting in 5 minutes"
 
-# Specify a custom sender identity (defaults to your AzDO display name or username)
-hermes-notify "Build Failed" "Main branch pipeline failed" --from "CI Runner"
-
 # Filter recipients by name or project
 hermes-notify "Code Review" "PR #42 is ready for review" --filter-name "Dale" --url "http://your-azdo/pr/42"
 ```

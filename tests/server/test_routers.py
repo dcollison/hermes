@@ -410,11 +410,10 @@ class TestNotifyScript:
             "Test Message",
             "--filter-name",
             "Dale",
-            "--from",
-            "Stephen",
         ]
         with (
             patch.object(sys, "argv", test_args),
+            patch("notify._resolve_default_sender", return_value="Stephen"),
             patch("httpx.post", return_value=mock_resp) as mock_post,
         ):
             notify.main()
@@ -426,6 +425,25 @@ class TestNotifyScript:
         assert payload["body"] == "Test Message"
         assert payload["filter_name_contains"] == "Dale"
         assert payload["actor"] == "Stephen"
+
+    def test_main_rejects_from_flag(self):
+        # Standard
+        import sys
+
+        import notify
+
+        test_args = [
+            "notify.py",
+            "Test Title",
+            "Test Message",
+            "--from",
+            "Impostor",
+        ]
+        with (
+            patch.object(sys, "argv", test_args),
+            pytest.raises(SystemExit),
+        ):
+            notify.main()
 
 
 class TestHealthAndStatusEndpoints:
