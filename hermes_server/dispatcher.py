@@ -71,15 +71,9 @@ async def _client_is_relevant(
         if not explicitly_mentioned:
             return False
 
-    # Work item events are targeted notifications (to assignees, mentioned users, or groups).
-    # Unassigned work items or work item actions without mentions must never broadcast.
-    if event_type == "workitem":
-        if not mentioned_user_ids and not mentioned_names:
-            return False
-
-    # If there are no mentions it's a broadcast — send to all subscribers
+    # Notifications without mentions are targeted and must not broadcast to subscribers
     if not mentioned_user_ids and not mentioned_names:
-        return True
+        return False
 
     # Direct user ID match
     if client_uid and client_uid in mentioned_user_ids:

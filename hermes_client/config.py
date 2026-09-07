@@ -126,7 +126,7 @@ def _ensure_std_streams(log_file: Path | str | None = None) -> None:
 
 class ClientSettings(BaseSettings):
     SERVER_URL: str = "http://localhost:8000"
-    CLIENT_NAME: str = socket.gethostname()
+    CLIENT_NAME: str = os.getenv("USERNAME", socket.gethostname()).replace(".", " ").title()
     LOCAL_HOST: str = "0.0.0.0"
     LOCAL_PORT: int = 9000
 
@@ -161,55 +161,6 @@ class ClientSettings(BaseSettings):
         "env_file": _find_env_file(),
         "env_file_encoding": "utf-8",
     }
-
-    # Backward-compatible property aliases
-    @property
-    def ADO_USER_ID(self) -> str:
-        return self.AZDO_USER_ID
-
-    @ADO_USER_ID.setter
-    def ADO_USER_ID(self, value: str) -> None:
-        self.AZDO_USER_ID = value
-
-    @ADO_USER_ID.deleter
-    def ADO_USER_ID(self) -> None:
-        self.AZDO_USER_ID = ""
-
-    @property
-    def ADO_DISPLAY_NAME(self) -> str:
-        return self.AZDO_DISPLAY_NAME
-
-    @ADO_DISPLAY_NAME.setter
-    def ADO_DISPLAY_NAME(self, value: str) -> None:
-        self.AZDO_DISPLAY_NAME = value
-
-    @ADO_DISPLAY_NAME.deleter
-    def ADO_DISPLAY_NAME(self) -> None:
-        self.AZDO_DISPLAY_NAME = ""
-
-    @property
-    def ADO_ORGANIZATION_URL(self) -> str:
-        return self.AZDO_ORGANIZATION_URL
-
-    @ADO_ORGANIZATION_URL.setter
-    def ADO_ORGANIZATION_URL(self, value: str) -> None:
-        self.AZDO_ORGANIZATION_URL = value
-
-    @ADO_ORGANIZATION_URL.deleter
-    def ADO_ORGANIZATION_URL(self) -> None:
-        self.AZDO_ORGANIZATION_URL = ""
-
-    @property
-    def ADO_PAT(self) -> str:
-        return self.AZDO_PAT
-
-    @ADO_PAT.setter
-    def ADO_PAT(self, value: str) -> None:
-        self.AZDO_PAT = value
-
-    @ADO_PAT.deleter
-    def ADO_PAT(self) -> None:
-        self.AZDO_PAT = ""
 
     def is_fully_configured(self) -> bool:
         """Check whether all required runtime settings are populated.

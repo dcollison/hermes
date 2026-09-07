@@ -80,7 +80,7 @@ class TestClientIsRelevant:
         assert (
             await self._check(
                 _make_client(subscriptions=["pr"]),
-                _make_notification(event_type="pr"),
+                _make_notification(event_type="pr", mentioned_user_ids=["user-1"]),
             )
             is True
         )
@@ -89,7 +89,7 @@ class TestClientIsRelevant:
         assert (
             await self._check(
                 _make_client(subscriptions=["workitem"]),
-                _make_notification(event_type="pr"),
+                _make_notification(event_type="pr", mentioned_user_ids=["user-1"]),
             )
             is False
         )
@@ -147,9 +147,9 @@ class TestClientIsRelevant:
             is True
         )
 
-    # --- broadcast ---
+    # --- no mentions (not broadcast) ---
 
-    async def test_broadcast_with_no_mentions_delivered_to_all(self):
+    async def test_event_with_no_mentions_not_delivered(self):
         assert (
             await self._check(
                 _make_client(subscriptions=["pr"]),
@@ -159,7 +159,22 @@ class TestClientIsRelevant:
                     mentioned_names=[],
                 ),
             )
-            is True
+            is False
+        )
+
+    async def test_blank_pr_with_no_reviewers_not_broadcast_to_subscribers(self):
+        assert (
+            await self._check(
+                _make_client(display_name="Dale", subscriptions=["pr"]),
+                _make_notification(
+                    event_type="pr",
+                    actor="Author",
+                    actor_id="author-id",
+                    mentioned_user_ids=[],
+                    mentioned_names=[],
+                ),
+            )
+            is False
         )
 
     # --- direct user ID match ---
