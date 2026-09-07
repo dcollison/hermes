@@ -1,9 +1,11 @@
 # Standard
+import os
 import re
 import shutil
 import subprocess
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 # Remote
@@ -179,6 +181,217 @@ def _detect_upgrade_command(
     ]
 
 
+def is_file_locked(path: Path) -> bool:
+    """Check if a file is currently locked and cannot be opened for writing.
+
+    :param path: File path to test.
+    :returns: True if file exists and cannot be opened for writing; False otherwise.
+    """
+    if not path.is_file():
+        return False
+    try:
+        with open(path, "a+b"):
+            pass
+        return False
+    except OSError:
+        return True
+
+
+def _is_current_executable(exe_path: Path) -> bool:
+    """Check if the given path corresponds to the currently running script executable.
+
+    :param exe_path: Executable path to test.
+    :returns: True if the path matches the running script.
+    """
+    try:
+        script = Path(sys.argv[0]).resolve()
+        if script.suffix.lower() != ".exe":
+            script = script.with_suffix(".exe")
+        return exe_path.resolve() == script
+    except Exception:
+        return False
+
+
+def find_hermes_executables() -> list[Path]:
+    """Locate all Hermes executable paths associated with the current environment.
+
+    :returns: List of existing executable Paths.
+    """
+    exec_names = ("hermes-client.exe", "hermes-server.exe", "hermes-notify.exe")
+    found: set[Path] = set()
+
+    # 1. From sys.argv[0]
+    try:
+        script = Path(sys.argv[0]).resolve()
+        if script.suffix.lower() == ".exe" and script.is_file():
+            found.add(script)
+        elif script.with_suffix(".exe").is_file():
+            found.add(script.with_suffix(".exe"))
+        for name in exec_names:
+            sib = (script.parent / name).resolve()
+            if sib.is_file():
+                found.add(sib)
+    except Exception:
+        pass
+
+    # 2. From startup._resolve_paths()
+    try:
+        _, script_path = startup._resolve_paths()
+        sp = Path(script_path).resolve()
+        if sp.is_file():
+            found.add(sp)
+            for name in exec_names:
+                sib = (sp.parent / name).resolve()
+                if sib.is_file():
+                    found.add(sib)
+    except Exception:
+        pass
+
+    # 3. From sys.executable directory and Scripts directory
+    try:
+        py_dir = Path(sys.executable).parent
+        for d in (py_dir, py_dir / "Scripts"):
+            if d.is_dir():
+                for name in exec_names:
+                    p = (d / name).resolve()
+                    if p.is_file():
+                        found.add(p)
+    except Exception:
+        pass
+
+    # 4. From PATH (e.g. ~/.local/bin or virtualenv)
+    for name in exec_names:
+        try:
+            which_path = shutil.which(name)
+            if which_path:
+                p = Path(which_path).resolve()
+                if p.is_file():
+                    found.add(p)
+                    for sib_name in exec_names:
+                        sib = (p.parent / sib_name).resolve()
+                        if sib.is_file():
+                            found.add(sib)
+        except Exception:
+            pass
+
+    return sorted(found)
+
+
+def prepare_executables_for_upgrade() -> list[tuple[Path, Path]]:
+    """Rename running or locked Hermes executables on Windows so package managers can replace them.
+
+    Renames executables to `<name>.<pid>.old`.
+
+    :returns: List of (original_path, renamed_old_path) tuples.
+    """
+    if sys.platform != "win32":
+        return []
+
+    candidates = find_hermes_executables()
+    renamed: list[tuple[Path, Path]] = []
+
+    for exe_path in candidates:
+        if _is_current_executable(exe_path) or is_file_locked(exe_path):
+            old_path = exe_path.with_name(f"{exe_path.name}.{os.getpid()}.old")
+            try:
+                if old_path.exists():
+                    try:
+                        old_path.unlink(missing_ok=True)
+                    except OSError:
+                        old_path = exe_path.with_name(
+                            f"{exe_path.name}.{os.getpid()}.{int(time.time())}.old"
+                        )
+                exe_path.rename(old_path)
+                renamed.append((exe_path, old_path))
+            except OSError as e:
+                print(f"  Warning: Could not rename {exe_path.name}: {e}")
+
+    return renamed
+
+
+def restore_executables(renamed: list[tuple[Path, Path]]) -> None:
+    """Restore renamed executables back to their original names if an upgrade failed.
+
+    :param renamed: List of (original_path, renamed_old_path) tuples to restore.
+    """
+    for original, old in renamed:
+        if old.exists() and not original.exists():
+            try:
+                old.rename(original)
+            except OSError as e:
+                print(f"  Warning: Could not restore {original.name}: {e}")
+
+
+def schedule_old_executables_cleanup(renamed: list[tuple[Path, Path]]) -> None:
+    """Schedule or attempt deletion of renamed .old executable files.
+
+    :param renamed: List of (original_path, renamed_old_path) tuples.
+    """
+    for _, old in renamed:
+        if not old.exists():
+            continue
+        try:
+            old.unlink(missing_ok=True)
+            continue
+        except OSError:
+            pass
+
+        if sys.platform == "win32":
+            try:
+                cmd = f'cmd.exe /c "ping 127.0.0.1 -n 3 >nul & del /f /q \"{old}\""'
+                subprocess.Popen(
+                    cmd,
+                    shell=True,
+                    creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NO_WINDOW,
+                    close_fds=True,
+                )
+            except Exception:
+                pass
+
+
+def cleanup_old_executables(directories: list[Path] | None = None) -> None:
+    """Attempt to delete any stale .old executable files left by previous upgrades.
+
+    :param directories: Optional list of directories to scan. Defaults to directories
+        associated with Hermes executables.
+    """
+    if directories is None:
+        dirs_to_check: set[Path] = set()
+        try:
+            script_path = Path(sys.argv[0]).resolve()
+            dirs_to_check.add(script_path.parent)
+        except Exception:
+            pass
+        try:
+            py_dir = Path(sys.executable).parent
+            dirs_to_check.add(py_dir)
+            if (py_dir / "Scripts").is_dir():
+                dirs_to_check.add(py_dir / "Scripts")
+        except Exception:
+            pass
+        try:
+            which_client = shutil.which("hermes-client.exe") or shutil.which("hermes-client")
+            if which_client:
+                dirs_to_check.add(Path(which_client).resolve().parent)
+        except Exception:
+            pass
+    else:
+        dirs_to_check = set(directories)
+
+    for d in dirs_to_check:
+        if not d.is_dir():
+            continue
+        try:
+            for old_file in d.glob("hermes-*.old*"):
+                if old_file.is_file():
+                    try:
+                        old_file.unlink(missing_ok=True)
+                    except OSError:
+                        pass
+        except Exception:
+            pass
+
+
 def upgrade_client(
     package_name: str = "hermes",
     restart: bool = True,
@@ -192,6 +405,8 @@ def upgrade_client(
     :returns: True if upgrade succeeded; False otherwise.
     """
     settings = ClientSettings()
+    cleanup_old_executables()
+
     was_running, _ = is_client_running(settings.LOCAL_PORT, settings.LOCAL_HOST)
 
     if was_running:
@@ -202,15 +417,22 @@ def upgrade_client(
         else:
             print("WARNING: Could not cleanly stop Hermes client.")
 
+    renamed = prepare_executables_for_upgrade()
+
     cmd = _detect_upgrade_command(package_name=package_name, extra_args=extra_args)
     print(f"  Running: {' '.join(cmd)}")
     res = subprocess.run(cmd)
     if res.returncode != 0:
         print(f"\n  ERROR: Upgrade command exited with code {res.returncode}")
+        if renamed:
+            restore_executables(renamed)
         if was_running and restart:
             print("  Restarting previous Hermes client instance...")
             start_client()
         return False
+
+    if renamed:
+        schedule_old_executables_cleanup(renamed)
 
     print("\n✓ Hermes upgrade completed successfully.")
 

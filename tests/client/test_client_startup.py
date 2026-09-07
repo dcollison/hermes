@@ -67,6 +67,16 @@ class TestStartupShortcut:
             pythonw, script = startup._resolve_paths()
             assert script == "C:\\Python\\Scripts\\hermes-client.exe"
 
+    def test_resolve_paths_windows_strips_old_suffix(self):
+        with (
+            patch("sys.platform", "win32"),
+            patch("sys.argv", ["C:\\Python\\Scripts\\hermes-client.exe.12345.old"]),
+            patch("sys.executable", "C:\\Python\\python.exe"),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            pythonw, script = startup._resolve_paths()
+            assert script == "C:\\Python\\Scripts\\hermes-client.exe"
+
     def test_create_shortcut_invokes_powershell(self):
         mock_run = MagicMock()
         with (

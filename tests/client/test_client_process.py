@@ -1,4 +1,5 @@
 # Standard
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from hermes_client import process
@@ -144,3 +145,181 @@ class TestUpgradeClient:
             cmd = mock_sub_run.call_args[0][0]
             assert "pip" in cmd
             assert "--upgrade" in cmd
+
+    def test_upgrade_client_failure_restores_executables(self):
+        mock_run = MagicMock()
+        mock_run.returncode = 1
+
+        with (
+            patch("hermes_client.process.is_client_running", return_value=(False, None)),
+            patch(
+                "hermes_client.process.prepare_executables_for_upgrade",
+                return_value=[(Path("a.exe"), Path("a.exe.old"))],
+            ) as mock_prep,
+            patch("hermes_client.process.restore_executables") as mock_restore,
+            patch("subprocess.run", return_value=mock_run),
+        ):
+            res = process.upgrade_client(package_name="hermes", restart=False)
+            assert res is False
+            mock_prep.assert_called_once()
+            mock_restore.assert_called_once()
+
+    def test_upgrade_client_success_schedules_cleanup(self):
+        mock_run = MagicMock()
+        mock_run.returncode = 0
+
+        with (
+            patch("hermes_client.process.is_client_running", return_value=(False, None)),
+            patch(
+                "hermes_client.process.prepare_executables_for_upgrade",
+                return_value=[(Path("a.exe"), Path("a.exe.old"))],
+            ) as mock_prep,
+            patch("hermes_client.process.schedule_old_executables_cleanup") as mock_sched,
+            patch("subprocess.run", return_value=mock_run),
+        ):
+            res = process.upgrade_client(package_name="hermes", restart=False)
+            assert res is True
+            mock_prep.assert_called_once()
+            mock_sched.assert_called_once()
+
+
+class TestIsFileLocked:
+    def test_nonexistent_file_returns_false(self, tmp_path):
+        assert process.is_file_locked(tmp_path / "nonexistent.exe") is False
+
+    def test_unlocked_file_returns_false(self, tmp_path):
+        f = tmp_path / "app.exe"
+        f.write_bytes(b"content")
+        assert process.is_file_locked(f) is False
+
+    def test_locked_file_returns_true(self, tmp_path):
+        f = tmp_path / "app.exe"
+        f.write_bytes(b"content")
+        with patch("builtins.open", side_effect=PermissionError("Locked")):
+            assert process.is_file_locked(f) is True
+
+
+class TestFindHermesExecutables:
+    def test_finds_executables(self, tmp_path):
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        client_exe = bin_dir / "hermes-client.exe"
+        client_exe.write_bytes(b"")
+        server_exe = bin_dir / "hermes-server.exe"
+        server_exe.write_bytes(b"")
+
+        with (
+            patch("sys.argv", [str(client_exe)]),
+            patch("shutil.which", return_value=None),
+            patch("sys.executable", str(tmp_path / "python.exe")),
+        ):
+            found = process.find_hermes_executables()
+            assert client_exe in found
+            assert server_exe in found
+
+
+class TestPrepareExecutablesForUpgrade:
+    def test_non_windows_returns_empty(self):
+        with patch("sys.platform", "linux"):
+            assert process.prepare_executables_for_upgrade() == []
+
+    def test_windows_renames_current_executable(self, tmp_path):
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        client_exe = bin_dir / "hermes-client.exe"
+        client_exe.write_bytes(b"exe content")
+
+        with (
+            patch("sys.platform", "win32"),
+            patch("hermes_client.process.find_hermes_executables", return_value=[client_exe]),
+            patch("hermes_client.process._is_current_executable", return_value=True),
+        ):
+            renamed = process.prepare_executables_for_upgrade()
+            assert len(renamed) == 1
+            orig, old = renamed[0]
+            assert orig == client_exe
+            assert not orig.exists()
+            assert old.exists()
+            assert ".old" in old.name
+
+    def test_windows_renames_locked_executable(self, tmp_path):
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        server_exe = bin_dir / "hermes-server.exe"
+        server_exe.write_bytes(b"server content")
+
+        with (
+            patch("sys.platform", "win32"),
+            patch("hermes_client.process.find_hermes_executables", return_value=[server_exe]),
+            patch("hermes_client.process._is_current_executable", return_value=False),
+            patch("hermes_client.process.is_file_locked", return_value=True),
+        ):
+            renamed = process.prepare_executables_for_upgrade()
+            assert len(renamed) == 1
+            orig, old = renamed[0]
+            assert orig == server_exe
+            assert not orig.exists()
+            assert old.exists()
+
+
+class TestRestoreExecutables:
+    def test_restore_renamed_file_when_original_missing(self, tmp_path):
+        orig = tmp_path / "hermes-client.exe"
+        old = tmp_path / "hermes-client.exe.old"
+        old.write_bytes(b"saved content")
+
+        process.restore_executables([(orig, old)])
+        assert orig.exists()
+        assert not old.exists()
+        assert orig.read_bytes() == b"saved content"
+
+    def test_restore_does_not_overwrite_if_original_exists(self, tmp_path):
+        orig = tmp_path / "hermes-client.exe"
+        orig.write_bytes(b"new content")
+        old = tmp_path / "hermes-client.exe.old"
+        old.write_bytes(b"old content")
+
+        process.restore_executables([(orig, old)])
+        assert orig.read_bytes() == b"new content"
+        assert old.exists()
+
+
+class TestScheduleOldExecutablesCleanup:
+    def test_immediate_unlink_if_not_locked(self, tmp_path):
+        orig = tmp_path / "hermes-client.exe"
+        old = tmp_path / "hermes-client.exe.old"
+        old.write_bytes(b"old content")
+
+        process.schedule_old_executables_cleanup([(orig, old)])
+        assert not old.exists()
+
+    def test_spawns_detached_process_when_locked_on_windows(self, tmp_path):
+        orig = tmp_path / "hermes-client.exe"
+        old = tmp_path / "hermes-client.exe.old"
+        old.write_bytes(b"old content")
+
+        with (
+            patch("sys.platform", "win32"),
+            patch.object(Path, "unlink", side_effect=PermissionError("Locked")),
+            patch("subprocess.Popen") as mock_popen,
+        ):
+            process.schedule_old_executables_cleanup([(orig, old)])
+            mock_popen.assert_called_once()
+            cmd = mock_popen.call_args[0][0]
+            assert "del /f /q" in cmd
+            assert str(old) in cmd
+
+
+class TestCleanupOldExecutables:
+    def test_cleanup_removes_old_files(self, tmp_path):
+        old1 = tmp_path / "hermes-client.exe.1234.old"
+        old1.write_bytes(b"")
+        old2 = tmp_path / "hermes-server.exe.old"
+        old2.write_bytes(b"")
+        keep = tmp_path / "hermes-client.exe"
+        keep.write_bytes(b"")
+
+        process.cleanup_old_executables([tmp_path])
+        assert not old1.exists()
+        assert not old2.exists()
+        assert keep.exists()

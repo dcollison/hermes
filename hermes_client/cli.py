@@ -682,6 +682,7 @@ def _build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     """Main entrypoint for the hermes-client CLI."""
     _ensure_std_streams()
+    process.cleanup_old_executables()
 
     parser = _build_parser()
     args = parser.parse_args()

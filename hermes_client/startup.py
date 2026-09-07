@@ -1,5 +1,6 @@
 # Standard
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -55,6 +56,10 @@ def _resolve_paths() -> tuple[str, str]:
     script = Path(sys.argv[0]).resolve()
 
     if sys.platform == "win32":
+        if script.name.endswith(".old"):
+            clean_name = re.sub(r"(\.\d+)?\.old$", "", script.name)
+            script = script.with_name(clean_name)
+
         if script.suffix.lower() != ".exe":
             if script.with_suffix(".exe").exists():
                 script = script.with_suffix(".exe")
